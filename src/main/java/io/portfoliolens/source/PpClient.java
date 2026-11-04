@@ -132,8 +132,10 @@ public final class PpClient
         }
         catch (IOException e)
         {
-            throw new PpException(Kind.UNREACHABLE, "Request to Portfolio Performance at " + base + " failed: "
-                            + e.getClass().getSimpleName());
+            // through a port forwarder a missing PP shows as a closed connection, not as refused
+            throw new PpException(Kind.UNREACHABLE, "Request to Portfolio Performance at " + base + " failed ("
+                            + e.getClass().getSimpleName() + "): PP is probably not running, or its REST API is"
+                            + " disabled (Preferences > MCP Server & REST API)");
         }
         if (response.status() != 200)
             throw problem(response, endpoint);

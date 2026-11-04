@@ -38,12 +38,29 @@ public final class CompositionCredentials
         private long revision;
     }
 
+    /**
+     * A non-secret revision of the configured key, for example a salted digest. A changed
+     * revision lifts a suspension that an authentication failure caused (see the budget).
+     */
+    @FunctionalInterface
+    public interface Revision
+    {
+        long of(ProviderAccount account);
+    }
+
     private final KeyStore store;
+    private final Revision revision;
     private final Map<ProviderAccount, Entry> entries = new HashMap<>();
 
     public CompositionCredentials(KeyStore store)
     {
+        this(store, account -> 0);
+    }
+
+    public CompositionCredentials(KeyStore store, Revision revision)
+    {
         this.store = Objects.requireNonNull(store);
+        this.revision = Objects.requireNonNull(revision);
     }
 
     public synchronized Optional<String> getBearerToken(ProviderAccount account)
@@ -68,6 +85,7 @@ public final class CompositionCredentials
     {
         getBearerToken(account);
         var entry = entry(account);
+        entry.revision = revision.of(account);
         return new State(entry.mode, entry.revision);
     }
 

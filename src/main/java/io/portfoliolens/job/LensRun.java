@@ -190,7 +190,8 @@ public final class LensRun
         var enrichmentExecutor = Executors.newFixedThreadPool(2, daemon("lens-enrichment"));
         try
         {
-            var deadline = started.plus(settings.runTimeout());
+            // the time limit runs on the wall clock; the clock of the environment dates the data
+            var deadline = Instant.now().plus(settings.runTimeout());
             var providerHttp = new CountingHttpGet(environment.http());
             var provider = new EulerpoolFundCompositionProvider(this::key,
                             EulerpoolFundCompositionProvider.transport(providerHttp), clock,
@@ -251,7 +252,7 @@ public final class LensRun
                 waitIdle(enrichment, deadline);
                 attributes = enrichment.snapshot();
                 enrichment.close();
-                waitIdle(enrichment, clock.instant().plusSeconds(5));
+                waitIdle(enrichment, Instant.now().plusSeconds(5));
                 companies.flush();
             }
 

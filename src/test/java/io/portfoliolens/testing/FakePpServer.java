@@ -67,12 +67,17 @@ public final class FakePpServer implements AutoCloseable
         return this;
     }
 
-    /** The standard synthetic file with its holdings and instruments. */
+    /** The id of the file in {@code pp/files-one.json}; its alias is {@code main}. */
+    public static final String FILE_ID = "5f3c1e2a-0b7d-4a1e-9c2f-000000000001";
+
+    /** The standard synthetic file with its holdings and instruments, by alias and by id. */
     public FakePpServer serveStandard()
     {
-        return serve("/v1/version", "pp/version.json").serve("/v1/files", "pp/files-one.json")
-                        .serve("/v1/files/main/holdings", "pp/holdings.json")
-                        .serve("/v1/files/main/instruments", "pp/instruments.json");
+        serve("/v1/version", "pp/version.json").serve("/v1/files", "pp/files-one.json");
+        for (var file : new String[] { "main", FILE_ID })
+            serve("/v1/files/" + file + "/holdings", "pp/holdings.json").serve("/v1/files/" + file + "/instruments",
+                            "pp/instruments.json");
+        return this;
     }
 
     public synchronized List<Request> requests()

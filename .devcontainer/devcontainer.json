@@ -1,0 +1,102 @@
+// VS Code dev container for Portfolio Lens.
+//
+// Optional: scripts/dev.sh and scripts/openspec from a host terminal need none of
+// this. Open the folder with "Dev Containers: Reopen in Container" to get an editor,
+// shell and agents that run inside the project's own image (.devcontainer/Dockerfile).
+//
+// - The repository is mounted at the same absolute path as on the host, and the
+//   host's Docker socket is shared (docker-outside-of-docker). So scripts/dev.sh
+//   works inside the container exactly as on the host. mvn and openspec also run
+//   directly in the terminal.
+// - The Maven cache is the same volume scripts/dev.sh uses (portfolio-lens-m2).
+// - Git: VS Code forwards the host's SSH agent and credential helper and copies
+//   ~/.gitconfig. post-create.sh trusts the checkout and adds GitHub's host keys.
+// - gh, Claude Code and Codex keep their logins in volumes shared by every dev
+//   container on this machine: log in once, it survives rebuilds.
+{
+  "name": "Portfolio Lens",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+
+  "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
+  "workspaceFolder": "${localWorkspaceFolder}",
+
+  "mounts": [
+    "source=portfolio-lens-m2,target=/root/.m2,type=volume",
+    "source=portfolio-lens-shell-history,target=/commandhistory,type=volume",
+    "source=devcontainer-gh-config,target=/root/.config/gh,type=volume",
+    "source=devcontainer-claude-config,target=/root/.claude,type=volume",
+    "source=devcontainer-codex-config,target=/root/.codex,type=volume"
+  ],
+
+  "containerEnv": {
+    "WORKSPACE_DIR": "${localWorkspaceFolder}",
+    "HISTFILE": "/commandhistory/.zsh_history",
+    "CLAUDE_CONFIG_DIR": "/root/.claude",
+    "CODEX_HOME": "/root/.codex",
+    "STARSHIP_CONFIG": "${localWorkspaceFolder}/.devcontainer/starship.toml"
+  },
+
+  "remoteUser": "root",
+  "init": true,
+
+  "features": {
+    // zsh with Oh My Zsh as the default shell, plus the everyday tools.
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "username": "root",
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "installOhMyZsh": true
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+    // Starship (the prompt) is installed in the Dockerfile, not as a feature: the
+    // feature installed the 32-bit ARM build on arm64, which ran emulated and slow.
+  },
+
+  "postCreateCommand": "sh .devcontainer/post-create.sh",
+
+  "customizations": {
+    "vscode": {
+      // The whole extension set, installed in the container. .vscode/extensions.json
+      // only recommends Dev Containers, so the host window does not offer these too.
+      "extensions": [
+        // Java and Maven
+        "vscjava.vscode-java-pack",
+        "redhat.vscode-xml",
+        // OpenSpec and docs
+        "redhat.vscode-yaml",
+        "davidanson.vscode-markdownlint",
+        // Git and GitHub
+        "eamodio.gitlens",
+        "github.vscode-pull-request-github",
+        "github.vscode-github-actions",
+        // Ease of life
+        "usernamehw.errorlens",
+        "streetsidesoftware.code-spell-checker",
+        "gruntfuggly.todo-tree",
+        "ms-azuretools.vscode-containers",
+        // Agents
+        "anthropic.claude-code",
+        "openai.chatgpt"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        // No terminal revival after a rebuild: restored terminals start as /bin/sh
+        // without prompt and history. New terminals start zsh.
+        "terminal.integrated.enablePersistentSessions": false,
+        // Nothing here serves ports; VS Code's own short-lived ports are not worth forwarding.
+        "remote.autoForwardPorts": false,
+        "git.autofetch": true,
+        "git.pruneOnFetch": true,
+        "git.confirmSync": false,
+        // ripgrep from the image: Todo Tree cannot find VS Code's own copy.
+        "todo-tree.ripgrep.ripgrep": "/usr/bin/rg",
+        "gitlens.showWhatsNewAfterUpgrades": false,
+        "cSpell.language": "en"
+      }
+    }
+  }
+}

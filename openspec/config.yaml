@@ -1,0 +1,48 @@
+schema: spec-driven
+
+context: |
+  Portfolio Lens is a standalone, open-source (Apache-2.0) companion to Portfolio Performance (PP).
+  It reads the open portfolio only through PP's local REST API v1 with GET requests and never writes to it.
+  Stack: Java 21 and Maven, kept as simple as possible; prefer the JDK over libraries.
+  All builds and tests run in Docker via scripts/dev.sh. Never plan steps that install tools on the host.
+  Everything is public: artifacts must not contain personal or financial data (names, account numbers,
+  amounts, holdings, ISINs from real portfolios, keys). Use synthetic examples only.
+  No code or resources copied from PP or other third parties without a compatible license (AGENTS.md, Rule 3).
+
+rules:
+  proposal:
+    - State what is out of scope
+  tasks:
+    - Include tests for business logic, run with scripts/dev.sh test
+    - Include the branch and the pull request into main, and a privacy scan of the diff before committing
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

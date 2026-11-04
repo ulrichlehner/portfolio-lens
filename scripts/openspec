@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Runs the OpenSpec CLI in the dev container image. Nothing is installed on the host.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+IMAGE=portfolio-lens-dev
+
+docker image inspect "$IMAGE" >/dev/null 2>&1 || docker build -t "$IMAGE" "$ROOT/.devcontainer"
+
+# run in the same folder relative to the repository, as the host user
+case "$PWD/" in
+    "$ROOT"/*) rel="${PWD#"$ROOT"}" ;;
+    *) rel="" ;;
+esac
+
+tty=()
+[ -t 0 ] && [ -t 1 ] && tty=(-it)
+
+docker run --rm ${tty[@]+"${tty[@]}"} --user "$(id -u):$(id -g)" -e HOME=/tmp \
+    -v "$ROOT":/workspace -w "/workspace$rel" --entrypoint openspec "$IMAGE" "$@"

@@ -1,0 +1,7 @@
+# build output
+target/
+
+# private temporary files (real portfolios, provider keys, debug output)
+/scratch/
+
+.DS_Store

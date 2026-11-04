@@ -1,0 +1,21 @@
+// No format on save until the project has a checked-in formatter configuration;
+// format only the lines you changed.
+{
+  "editor.formatOnSave": false,
+  // The Java language server builds into target/classes, the same folder scripts/dev.sh
+  // compiles into. A background build while dev.sh runs can leave incomplete classes,
+  // so builds only run on explicit request.
+  "java.autobuild.enabled": false,
+  "files.encoding": "utf8",
+  "files.exclude": {
+    "**/.DS_Store": true,
+    "**/target": true
+  },
+  "search.exclude": {
+    "**/target": true,
+    "scratch/**": true
+  },
+  "files.watcherExclude": {
+    "**/target/**": true
+  }
+}

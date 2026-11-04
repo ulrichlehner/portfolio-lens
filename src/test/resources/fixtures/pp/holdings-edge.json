@@ -1,0 +1,26 @@
+{
+  "date": "2026-07-20",
+  "reportingCurrency": "EUR",
+  "totalAssets": {"value": 4105.00, "currency": "EUR"},
+  "items": [
+    {"type": "instrument", "uuid": "00000000-0000-4000-8000-0000000000e1", "name": "Synthetic Short",
+     "shares": -5, "price": {"value": 100.00, "currency": "EUR", "date": "2026-07-17"},
+     "valuation": {"value": -500.00, "currency": "EUR"}, "weight": -0.1218},
+    {"type": "instrument", "uuid": "00000000-0000-4000-8000-0000000000e2", "name": "Synthetic Without Price",
+     "shares": 3, "valuation": {"value": 0, "currency": "EUR"}, "weight": 0.0},
+    {"type": "instrument", "uuid": "00000000-0000-4000-8000-0000000000e3", "name": "Synthetic One To One",
+     "shares": 10, "price": {"value": 110.50, "currency": "USD", "date": "2026-07-17"},
+     "valuation": {"value": 1105.00, "currency": "EUR"}, "localValuation": {"value": 1105.00, "currency": "USD"},
+     "weight": 0.2692},
+    {"type": "instrument", "uuid": "00000000-0000-4000-8000-0000000000e4", "name": "Synthetic Without Local",
+     "shares": 10, "price": {"value": 50.00, "currency": "GBP", "date": "2026-07-17"},
+     "valuation": {"value": 500.00, "currency": "EUR"}, "weight": 0.1218},
+    {"type": "instrument", "uuid": "00000000-0000-4000-8000-0000000000e5", "name": "Synthetic Converted",
+     "shares": 10, "price": {"value": 110.50, "currency": "USD", "date": "2026-07-17"},
+     "valuation": {"value": 1000.00, "currency": "EUR"}, "localValuation": {"value": 1105.00, "currency": "USD"},
+     "weight": 0.2436},
+    {"type": "instrument", "uuid": "00000000-0000-4000-8000-0000000000e6", "name": "Synthetic Zero Price",
+     "shares": 4, "price": {"value": 0, "currency": "EUR", "date": "2026-07-17"},
+     "valuation": {"value": 0, "currency": "EUR"}, "weight": 0.0}
+  ]
+}

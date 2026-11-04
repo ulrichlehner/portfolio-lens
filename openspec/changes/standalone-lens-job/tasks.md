@@ -27,7 +27,8 @@ Every build and test runs through `scripts/dev.sh`; nothing is installed on the 
   - Evidence: `PersistedAdmissionStateTest` (5 tests) passes: restored budget refuses beyond capacity, charges expire after the window, restored retry deadline defers, suspension lifts only with a new configuration revision, restored attempt keeps the 24-hour cadence.
 - [x] 2.4 Port the core test classes from `name.abuchen.portfolio.tests/src/name/abuchen/portfolio/snapshot/lookthrough/` (CompanyAttributes, CompanyEnrichmentCache, CompanyEnrichmentProgress, CompanyEnrichmentService, CompanyRevenueEnrichment, CompositionPersistencePolicy, CompositionPersistencePreferences, CompositionRefreshCoordinator, CompositionRequestBudget, CompositionStorePreferenceToggle, CompositionStore, CompositionValidator, FundOverlap, InstrumentResolver, LookThroughEngine, RevenueSplit); rewrite fixtures that built a PP `Client` to build `HeldInstrument` and positions; check that every fixture uses invented amounts and public ISINs only. Verify `scripts/dev.sh test` passes.
   - Evidence: 16 ported test classes, 205 tests, all pass with JUnit 5. JUnit 4 `TemporaryFolder` became a small test extension; message-first assertions were reordered. Fixture identifiers are synthetic (`XX0000000017` and similar), no real ISIN.
-- [ ] 2.5 Drop `HeldSecuritiesTest` and port the cases of `SecuritiesValuationAdapterTest` that still apply into `RestValuationAdapterTest` (task 4.3). Record in this task which cases were dropped and why (PP-side valuation, transaction fallback).
+- [x] 2.5 Drop `HeldSecuritiesTest` and port the cases of `SecuritiesValuationAdapterTest` that still apply into `RestValuationAdapterTest` (task 4.3). Record in this task which cases were dropped and why (PP-side valuation, transaction fallback).
+  - Evidence: `HeldSecuritiesTest` dropped (PP already omits zero positions and dates the report). From `SecuritiesValuationAdapterTest`, `RestValuationAdapterTest` keeps the cases cash and unselected outside the denominator, short excluded without reducing the positive denominator, empty selection without denominator, missing price not substituted with zero, and missing FX not becoming 1:1. Dropped because PP computes them now: transaction price fallback, empty or chained FX series, nonpositive or historical FX, inverse conversion, joint snapshot rounding and PP half-down rounding. The case "genuine 1:1 FX is not rejected" is reversed on purpose (design D3, confirmed 2026-11-04).
 
 ## 3. Port the providers
 
@@ -40,10 +41,14 @@ Every build and test runs through `scripts/dev.sh`; nothing is installed on the 
 
 ## 4. PP REST source
 
-- [ ] 4.1 Add synthetic fixtures under `src/test/resources/fixtures/pp/` shaped by PP's `openapi.yaml` at `rest-api-v1.0.0`: version, files (one and several), holdings (instruments, cash account, unknown type, negative shares, missing price, USD instrument with and without `localValuation`, 1:1 fallback), instruments (with and without ISIN, null `currencyCode`, unknown fields), and problem responses 401, 404, 409 (`file-not-open`, `ambiguous-alias`). Verify a fixture scan test finds no ISIN outside an allow-list of well-known public ISINs.
-- [ ] 4.2 Implement the PP client (`/v1/version`, `/v1/files`, `/holdings`, `/instruments`) on the shared transport with loopback URL validation, bearer token, no `Origin` header and tolerant parsing. Verify with contract tests over the fixtures for every scenario in `specs/pp-rest-source/spec.md`.
-- [ ] 4.3 Implement `RestValuationAdapter` with the table in design D3. Verify with `RestValuationAdapterTest`, including the silent 1:1 conversion and the converted holding scenarios.
-- [ ] 4.4 Add a test-scope fake PP server on the JDK `HttpServer` that serves the fixtures and records every request. Verify a test that rejects a request with an `Origin` header or a non-loopback `Host`, like PP does.
+- [x] 4.1 Add synthetic fixtures under `src/test/resources/fixtures/pp/` shaped by PP's `openapi.yaml` at `rest-api-v1.0.0`: version, files (one and several), holdings (instruments, cash account, unknown type, negative shares, missing price, USD instrument with and without `localValuation`, 1:1 fallback), instruments (with and without ISIN, null `currencyCode`, unknown fields), and problem responses 401, 404, 409 (`file-not-open`, `ambiguous-alias`). Verify a fixture scan test finds no ISIN outside an allow-list of well-known public ISINs.
+  - Evidence: 17 fixtures in `src/test/resources/fixtures/pp/`; `FixturePrivacyTest` passes (only six well-known public ISINs and invented codes in all sources).
+- [x] 4.2 Implement the PP client (`/v1/version`, `/v1/files`, `/holdings`, `/instruments`) on the shared transport with loopback URL validation, bearer token, no `Origin` header and tolerant parsing. Verify with contract tests over the fixtures for every scenario in `specs/pp-rest-source/spec.md`.
+  - Evidence: `PpClientTest` (11 tests) passes. Spec wording corrected during apply: the fork sent only the ISIN to providers, so `pp-rest-source` now says WKN and ticker are display-only.
+- [x] 4.3 Implement `RestValuationAdapter` with the table in design D3. Verify with `RestValuationAdapterTest`, including the silent 1:1 conversion and the converted holding scenarios.
+  - Evidence: `RestValuationAdapterTest` (8 tests) passes, including the silent 1:1 conversion and converted holding scenarios.
+- [x] 4.4 Add a test-scope fake PP server on the JDK `HttpServer` that serves the fixtures and records every request. Verify a test that rejects a request with an `Origin` header or a non-loopback `Host`, like PP does.
+  - Evidence: `FakePpServerTest` passes: an `Origin` header and a non-loopback `Host` header get 403, a missing token 401.
 
 ## 5. Job
 

@@ -1,0 +1,4 @@
+{"items": [
+  {"id": "5f3c1e2a-0b7d-4a1e-9c2f-000000000001", "alias": "main", "label": "synthetic.xml", "path": "/synthetic/a.xml"},
+  {"id": "5f3c1e2a-0b7d-4a1e-9c2f-000000000002", "label": "second.xml", "path": "/synthetic/b.xml"}
+]}

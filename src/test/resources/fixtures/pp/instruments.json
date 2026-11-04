@@ -1,0 +1,13 @@
+{"items": [
+  {"uuid": "00000000-0000-4000-8000-000000000001", "name": "Synthetic World Equity ETF", "currencyCode": "EUR",
+   "isin": "IE00B4L5Y983", "tickerSymbol": "EUNL.DE", "attributes": {"ter": 0.2}, "logo": "unknown field"},
+  {"uuid": "00000000-0000-4000-8000-000000000002", "name": "Synthetic US Share", "currencyCode": "USD",
+   "isin": "US0378331005", "wkn": "865985", "tickerSymbol": "AAPL"},
+  {"uuid": "00000000-0000-4000-8000-000000000003", "name": "Synthetic German Share", "currencyCode": "EUR",
+   "isin": "DE0007164600"},
+  {"uuid": "00000000-0000-4000-8000-000000000004", "name": "Synthetic All-World ETF", "currencyCode": "EUR",
+   "isin": "IE00BK5BQT80"},
+  {"uuid": "00000000-0000-4000-8000-000000000005", "name": "Synthetic Unlisted Note", "currencyCode": "EUR",
+   "note": "no identifier on purpose"},
+  {"uuid": "00000000-0000-4000-8000-0000000000f1", "name": "Synthetic Index", "currencyCode": null}
+]}

@@ -1,0 +1,3 @@
+{"date": "2026-07-20", "reportingCurrency": "EUR", "totalAssets": {"value": 1, "currency": "EUR"},
+ "items": [{"type": "instrument", "uuid": "00000000-0000-4000-8000-000000000001", "name": "Synthetic", "shares": 1,
+            "weight": 1.0}]}

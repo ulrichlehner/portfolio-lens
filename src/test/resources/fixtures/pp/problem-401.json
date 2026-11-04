@@ -1,0 +1,1 @@
+{"type": "https://portfolio-performance.info/rest/problems/unauthorized", "title": "Unauthorized", "status": 401, "detail": "synthetic", "pairingEndpoint": "/v1/auth/requests"}

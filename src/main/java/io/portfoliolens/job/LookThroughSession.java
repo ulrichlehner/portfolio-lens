@@ -112,6 +112,21 @@ public final class LookThroughSession implements RefreshGateway
                     CompositionCredentials credentials, Clock clock, Executor executor,
                     SessionCompositionStore store)
     {
+        this(provider, classifier, credentials, clock, executor, store, DEFAULT_CAPACITY);
+    }
+
+    /** Request units per rolling 24 hours when nothing else is configured. */
+    public static final long DEFAULT_CAPACITY = 20000;
+
+    /**
+     * @param capacity
+     *            provider request units per rolling 24 hours, shared by compositions,
+     *            classifications and enrichment
+     */
+    public LookThroughSession(FundCompositionProvider provider, InstrumentClassifier classifier,
+                    CompositionCredentials credentials, Clock clock, Executor executor,
+                    SessionCompositionStore store, long capacity)
+    {
         this.credentials = credentials;
         this.clock = clock;
         this.executor = executor;
@@ -122,7 +137,7 @@ public final class LookThroughSession implements RefreshGateway
         // the part a classification did not use is released afterwards.
         this.classificationCost = classifier instanceof EulerpoolFundCompositionProvider
                         ? EulerpoolFundCompositionProvider.CLASSIFICATION_REQUEST_COST : 1;
-        this.budget = new CompositionRequestBudget(provider.getId(), clock, 20000, Duration.ofHours(24),
+        this.budget = new CompositionRequestBudget(provider.getId(), clock, capacity, Duration.ofHours(24),
                         Duration.ofMinutes(15));
         this.coordinator = new CompositionRefreshCoordinator(provider, budget, clock, executor,
                         classificationExecutor(), 1, classificationCost, 5000, 1,
@@ -150,6 +165,18 @@ public final class LookThroughSession implements RefreshGateway
                                 return knownEvidence(account, instrument);
                             }
                         });
+    }
+
+    /** The shared request budget, so a job can persist and restore it between runs. */
+    public CompositionRequestBudget budget()
+    {
+        return budget;
+    }
+
+    /** The refresh coordinator, so a job can persist and restore attempts between runs. */
+    public CompositionRefreshCoordinator coordinator()
+    {
+        return coordinator;
     }
 
     /**

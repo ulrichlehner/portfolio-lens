@@ -4,7 +4,8 @@ import java.util.Optional;
 
 /**
  * Selects the single banner of the look-through view. The selection is
- * SWT-free so the priority is testable: suspended provider access wins over a
+ * SWT-free so the priority is testable: a key without the local storage
+ * confirmation wins over suspended provider access, which wins over a
  * missing API key, which wins over an empty portfolio. A portfolio that holds
  * only directly classified securities needs no composition and therefore gets
  * no key banner. Banners describe states; the progress of a refresh is a
@@ -15,7 +16,8 @@ public final class LookThroughBanner
 {
     public enum Kind
     {
-        SUSPENDED, NO_KEY, EMPTY
+        /** A key is configured, but local storage is not confirmed: provider data is not used. */
+        UNCONFIRMED, SUSPENDED, NO_KEY, EMPTY
     }
 
     /**
@@ -33,8 +35,13 @@ public final class LookThroughBanner
      *            the portfolio has no current holdings
      */
     public record Facts(Optional<Boolean> keyConfigured, boolean accessSuspended,
-                    boolean needsCompositions, boolean empty)
+                    boolean needsCompositions, boolean empty, boolean unconfirmed)
     {
+        public Facts(Optional<Boolean> keyConfigured, boolean accessSuspended, boolean needsCompositions,
+                        boolean empty)
+        {
+            this(keyConfigured, accessSuspended, needsCompositions, empty, false);
+        }
     }
 
     private LookThroughBanner()
@@ -43,6 +50,11 @@ public final class LookThroughBanner
 
     public static Optional<Kind> select(Facts facts)
     {
+        // A key without the local storage confirmation has no effect; this must
+        // not go unnoticed, so it wins over every other state.
+        if (facts.unconfirmed() && facts.keyConfigured().equals(Optional.of(Boolean.TRUE)))
+            return Optional.of(Kind.UNCONFIRMED);
+
         // A rejected key is only reported while a key exists; without a key
         // the missing key is the actual problem.
         var configured = facts.keyConfigured();

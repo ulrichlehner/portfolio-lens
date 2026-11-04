@@ -784,6 +784,15 @@ public final class CompanyEnrichmentService implements AutoCloseable
         }
     }
 
+    /**
+     * Whether neither lane runs. A job that must end waits for this; retries that a lane
+     * scheduled are left to the next run.
+     */
+    public synchronized boolean isIdle()
+    {
+        return !providerLane.running && !registerLane.running;
+    }
+
     private boolean active(Lane lane, Instant now)
     {
         return lane.running || lane.retryScheduled && !lane.retryAt.isAfter(now.plus(SOON));

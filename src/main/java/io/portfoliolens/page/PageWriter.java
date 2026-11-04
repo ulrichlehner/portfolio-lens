@@ -299,14 +299,21 @@ public final class PageWriter
             add("<p class=\"empty\">", e(Texts.LookThroughChartEmpty), "</p>");
         else
         {
-            add("<div class=\"charts\"><figure><figcaption>", e(Texts.LookThroughChartTreemap),
-                            " <span class=\"scale\"><span class=\"swatch direct\"></span>",
-                            e(Texts.LookThroughChartHeldDirectly), " <span class=\"swatch indirect\"></span>",
-                            e(Texts.LookThroughChartThroughFunds), "</span></figcaption>");
+            add("<div class=\"charts\"><figure><figcaption>", e(Texts.LookThroughChartTreemap), "</figcaption>");
             treemap(grouping, chart);
+            // the tile color encodes the direct part on a continuous green-to-blue scale
+            add("<p class=\"chart-legend\"><span class=\"legend-caption\">", e(Texts.LookThroughChartTileColor),
+                            "</span> ", e(Texts.LookThroughChartHeldDirectly),
+                            " <span class=\"gradient\" style=\"background:linear-gradient(to right,",
+                            ChartColors.hex(ChartColors.DIRECT), ",", ChartColors.hex(ChartColors.INDIRECT),
+                            ")\"></span> ", e(Texts.LookThroughChartThroughFunds), "</p>");
             add("</figure><figure><figcaption>", e(Texts.LookThroughChartTopCompanies), "</figcaption>");
             bars(grouping, chart, model.currencyCode());
-            add("</figure></div>");
+            add("<p class=\"chart-legend\"><span class=\"legend-caption\">", e(Texts.LookThroughChartBarColor),
+                            "</span> <span class=\"swatch\" style=\"background:", ChartColors.hex(ChartColors.DIRECT),
+                            "\"></span>", e(Texts.LookThroughChartHeldDirectly), " <span class=\"swatch\" style=\"background:",
+                            ChartColors.hex(ChartColors.INDIRECT), "\"></span>", e(Texts.LookThroughChartThroughFunds),
+                            "</p></figure></div>");
         }
         table(grouping, model);
         add("</section>\n");
@@ -467,7 +474,7 @@ public final class PageWriter
         if (item.company() == null)
         {
             var text = item.otherCount() + " smaller companies";
-            add("<g><rect class=\"tm-tile tm-other\" style=\"--direct:", fraction(item.directFraction()), "\" x=\"",
+            add("<g><rect class=\"tm-tile tm-other\" x=\"",
                             num(r.x()), "\" y=\"", num(r.y()), "\" width=\"", num(r.width()), "\" height=\"",
                             num(r.height()), "\"><title>", e(text + "\n" + LookThroughViewPresenter.formatAmount(
                                             BigDecimal.valueOf(item.weight()), currency)),
@@ -479,8 +486,8 @@ public final class PageWriter
         }
         var company = item.company();
         var id = rowId(grouping, company.key());
-        add("<a href=\"#", id, "\" data-row=\"", id, "\"><rect class=\"tm-tile\" style=\"--direct:",
-                        fraction(company.directFraction()), "\" x=\"", num(r.x()), "\" y=\"", num(r.y()),
+        add("<a href=\"#", id, "\" data-row=\"", id, "\"><rect class=\"tm-tile\" fill=\"",
+                        ChartColors.tileColor(company.directFraction()), "\" x=\"", num(r.x()), "\" y=\"", num(r.y()),
                         "\" width=\"", num(r.width()), "\" height=\"", num(r.height()), "\"><title>",
                         e(tileTitle(company, currency)), "</title></rect>");
         if (r.width() >= 48 && r.height() >= 30)

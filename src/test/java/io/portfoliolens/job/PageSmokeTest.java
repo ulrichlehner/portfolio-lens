@@ -103,6 +103,14 @@ public class PageSmokeTest
         // the heading follows the grouping: the script takes it from the embedded data
         assertTrue(page.contains("<h1 id=\"heading\">Breakdown by Company</h1>"));
         assertTrue(page.contains("\"COUNTRY\":\"Breakdown by Country (headquarters)\""));
+        // tile colour legend: green held directly to blue through funds, swatches under the bars
+        assertTrue(page.contains("<span class=\"legend-caption\">Tile color:</span> Held directly <span class=\"gradient\""
+                        + " style=\"background:linear-gradient(to right,#2CA02C,#1F77B4)\"></span> Through funds"));
+        assertTrue(page.contains("<span class=\"legend-caption\">Bar color:</span>"));
+        assertTrue(page.contains("class=\"tm-tile\" fill=\"#"));
+        var overlap = page.substring(page.indexOf("<section class=\"overlap\">"),
+                        page.indexOf("</section>", page.indexOf("<section class=\"overlap\">")));
+        assertFalse(overlap.contains("chart-legend"), "no legend for the overlap matrix");
         // same-coloured tiles are separated by a stroke
         assertTrue(page.contains("stroke:var(--bg);stroke-width:1;vector-effect:non-scaling-stroke"));
         assertTrue(page.contains("<select id=\"grouping\" disabled>"));

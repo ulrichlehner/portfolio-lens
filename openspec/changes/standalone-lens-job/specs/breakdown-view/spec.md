@@ -58,6 +58,17 @@ When provider data is used, the data status SHALL state how many of the request 
 - **WHEN** the run that generated the page could not make further provider requests because the budget was used up
 - **THEN** the data status shows a warning with the used and available units and the time when units free up.
 
+### Requirement: Direct and fund colour scale
+Each treemap tile SHALL be coloured by the share of the company held directly, on a continuous scale from green (only directly) to blue (only through funds) in 20 steps, with a gradient legend below the treemap. The bar chart SHALL use the same two colours with two swatches. Tiles that merge smaller companies SHALL be grey, outside the scale.
+
+#### Scenario: Partly direct company
+- **WHEN** half of a company's exposure is held directly and half through funds
+- **THEN** its tile has the colour halfway between green and blue, and the legend below the treemap shows the gradient from "Held directly" to "Through funds".
+
+#### Scenario: Merged small companies
+- **WHEN** the treemap merges the smaller companies of a group into one tile
+- **THEN** that tile is grey, not a colour of the scale.
+
 ### Requirement: Generation time and staleness
 The page SHALL show when it was generated and the valuation date of the holdings. When opened more than one hour after generation, it SHALL show a notice that the page is older than expected and that the job may not be running.
 

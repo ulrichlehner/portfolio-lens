@@ -9,13 +9,13 @@ final class Style
 
     static final String CSS = """
                     :root{color-scheme:light dark;--bg:#fbfbfa;--fg:#1d2125;--muted:#5d646b;--line:#d9dcdf;--panel:#ffffff;
-                    --c-direct:#2f5fa7;--c-indirect:#7fb2e5;--tm-bg:#7fb2e5;--tm-label:#0b1a2e;
-                    --cov-companies:#2e8b57;--cov-ungrouped:#a3b84a;--cov-cash:#9aa1a8;--cov-unverified:#e0a43a;
+                    --c-direct:#2CA02C;--c-indirect:#1F77B4;--tm-bg:#1F77B4;--tm-label:#ffffff;--tm-other:#a3a9af;
+                    --cov-companies:#7b5ea7;--cov-ungrouped:#a3b84a;--cov-cash:#9aa1a8;--cov-unverified:#e0a43a;
                     --cov-unresolved:#c4473a;--warn-bg:#fff4dc;--warn-line:#d79a1e;--info-bg:#eef4fb;--target:#fff1b8;
                     --mx-0:#eef3f8;--mx-1:#1f4e89}
                     @media (prefers-color-scheme:dark){:root{--bg:#15181b;--fg:#e6e8ea;--muted:#a1a8af;--line:#33393f;
-                    --panel:#1d2125;--c-direct:#78a9ef;--c-indirect:#2c5a8c;--tm-bg:#2c5a8c;--tm-label:#f2f6fb;
-                    --cov-companies:#4fb37a;--cov-ungrouped:#b9cc5c;--cov-cash:#7c848c;--cov-unverified:#e8b45a;
+                    --panel:#1d2125;--tm-other:#5f666d;
+                    --cov-companies:#a58ad6;--cov-ungrouped:#b9cc5c;--cov-cash:#7c848c;--cov-unverified:#e8b45a;
                     --cov-unresolved:#e0675a;--warn-bg:#3a2e12;--warn-line:#d79a1e;--info-bg:#1c2b3b;--target:#4a4214;
                     --mx-0:#22303e;--mx-1:#8db8f2}}
                     *{box-sizing:border-box}
@@ -49,13 +49,15 @@ final class Style
                     select{font:inherit;padding:3px 6px}
                     main{border-top:1px solid var(--line)}
                     .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:16px;margin:12px 0}
-                    figure{margin:0}figcaption{font-weight:600;margin-bottom:4px}.scale{font-weight:400;color:var(--muted);margin-left:10px}
+                    figure{margin:0}figcaption{font-weight:600;margin-bottom:4px}
+.chart-legend{margin:6px 0 0;font-size:12px;color:var(--fg);display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.legend-caption{color:var(--muted)}.gradient{display:inline-block;width:120px;height:11px;border-radius:2px}
                     svg.treemap,svg.bars{width:100%;height:auto;display:block}svg.matrix{max-width:100%;height:auto;display:block}
                     .tm-bg,.tm-group{fill:var(--tm-bg)}.tm-group{stroke:var(--bg);stroke-width:1.5}
-                    .tm-tile{fill:color-mix(in srgb,var(--c-direct) calc(var(--direct)*100%),var(--c-indirect));stroke:var(--bg);stroke-width:1;vector-effect:non-scaling-stroke}
-.tm-other{opacity:.75}
+                    .tm-tile{stroke:var(--bg);stroke-width:1;vector-effect:non-scaling-stroke}
+.tm-tile.tm-other{fill:var(--tm-other)}
                     a:hover .tm-tile,a:focus .tm-tile,.tm-tile.selected,.tm-group.selected{stroke:var(--fg);stroke-width:2}
-                    .tm-label,.tm-share,.tm-group-label{font-size:11px;fill:var(--tm-label);pointer-events:none}
+                    .tm-label,.tm-share,.tm-group-label{font-size:11px;fill:var(--tm-label);pointer-events:none;paint-order:stroke;stroke:rgba(0,0,0,.25);stroke-width:2px}
                     .tm-group-label{font-weight:600}.tm-share{opacity:.85}
                     .bar-label,.bar-value,.mx-label{font-size:11px;fill:var(--fg)}.bar-value{fill:var(--muted)}
                     .bar-direct{fill:var(--c-direct)}.bar-indirect{fill:var(--c-indirect)}

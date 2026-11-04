@@ -48,9 +48,9 @@ final class Style
                     .controls{border-top:1px solid var(--line);margin-top:12px;padding:12px 0}
                     select{font:inherit;padding:3px 6px}
                     main{border-top:1px solid var(--line)}
-                    .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:16px;margin:12px 0}
+                    .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:16px;margin:12px 0}
                     figure{margin:0}figcaption{font-weight:600;margin-bottom:4px}.scale{font-weight:400;color:var(--muted);margin-left:10px}
-                    svg.treemap,svg.bars,svg.matrix{width:100%;height:auto;display:block}
+                    svg.treemap,svg.bars{width:100%;height:auto;display:block}svg.matrix{max-width:100%;height:auto;display:block}
                     .tm-bg,.tm-group{fill:var(--tm-bg)}.tm-group{stroke:var(--bg);stroke-width:1.5}
                     .tm-tile{fill:color-mix(in srgb,var(--c-direct) calc(var(--direct)*100%),var(--c-indirect))}
                     a:hover .tm-tile,a:focus .tm-tile,.tm-tile.selected{stroke:var(--fg);stroke-width:2}

@@ -462,6 +462,9 @@ public final class PageWriter
             }
             else if (row instanceof CategoryRow category)
             {
+                // categories that are empty or round to zero in the currency are not shown
+                if (category.value().setScale(0, RoundingMode.HALF_UP).signum() == 0)
+                    continue;
                 add("<tbody class=\"block category fixed\"><tr class=\"top\"><td class=\"rank\"></td><td>");
                 if (category.details().isEmpty())
                     add(e(category.label()));
@@ -545,8 +548,8 @@ public final class PageWriter
         var labelWidth = 220;
         var width = labelWidth + (n - 1) * cell + 4;
         var height = (n - 1) * cell + 40;
-        add("<svg class=\"matrix\" viewBox=\"0 0 ", String.valueOf(width), " ", String.valueOf(height),
-                        "\" role=\"img\" aria-label=\"", e(Texts.LookThroughChartOverlap), "\">");
+        add("<svg class=\"matrix\" width=\"", String.valueOf(width), "\" viewBox=\"0 0 ", String.valueOf(width), " ",
+                        String.valueOf(height), "\" role=\"img\" aria-label=\"", e(Texts.LookThroughChartOverlap), "\">");
         // lower triangle without diagonal: rows 1..n-1, columns 0..row-1
         for (int row = 1; row < n; row++)
         {

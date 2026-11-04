@@ -65,7 +65,8 @@ final class Script
                     var generated=new Date(data.generatedAt);
                     var hours=Math.floor((Date.now()-generated.getTime())/3600000);
                     if(hours>=1){var s=document.getElementById('stale');
-                      s.textContent='This page is '+hours+(hours===1?' hour':' hours')+' old. The Portfolio Lens job may not be running.';
+                      var age=hours<48?hours+(hours===1?' hour':' hours'):Math.floor(hours/24)+' days';
+                      s.textContent='This page is '+age+' old. The Portfolio Lens job may not be running.';
                       s.hidden=false;}
                     })();
                     """;

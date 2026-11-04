@@ -130,6 +130,8 @@ public final class CompositionRefreshCoordinator implements AutoCloseable
         private Instant retryAt = Instant.MIN;
         /** The provider gave a definitive answer without a usable composition. */
         private boolean noComposition;
+        /** The latest attempt has an answer (or was restored from one); false while it runs. */
+        private boolean finished;
         private CompletableFuture<Refresh> pending;
     }
 
@@ -203,7 +205,9 @@ public final class CompositionRefreshCoordinator implements AutoCloseable
     {
         var result = new ArrayList<Attempt>();
         entries.forEach((key, entry) -> {
-            if (key.account().equals(account) && entry.snapshot.attemptedAt().isPresent())
+            // an attempt that a process ended before its answer is not kept, so the
+            // next process retries the fund instead of waiting for the cadence
+            if (key.account().equals(account) && entry.snapshot.attemptedAt().isPresent() && entry.finished)
                 result.add(new Attempt(key.identifiers(), entry.snapshot.attemptedAt().orElseThrow(), entry.retryAt,
                                 entry.noComposition));
         });
@@ -225,6 +229,7 @@ public final class CompositionRefreshCoordinator implements AutoCloseable
                         entry.snapshot.resolutions());
         entry.retryAt = attempt.retryAt();
         entry.noComposition = attempt.noComposition();
+        entry.finished = true;
     }
 
     public synchronized Snapshot read(ProviderAccount account, CompositionInstrument fund)
@@ -300,6 +305,7 @@ public final class CompositionRefreshCoordinator implements AutoCloseable
             entry.snapshot = new Snapshot(Optional.of(clock.instant()), entry.snapshot.latestAttempt(),
                             entry.snapshot.usableComposition(), entry.snapshot.unverifiedComposition(),
                             entry.snapshot.resolutions());
+            entry.finished = false;
         }
 
         CompositionResult result;
@@ -367,6 +373,7 @@ public final class CompositionRefreshCoordinator implements AutoCloseable
                 nextUnverified = unverified;
             entry.snapshot = new Snapshot(entry.snapshot.attemptedAt(), Optional.of(result), nextUsable,
                             nextUnverified, resolutions);
+            entry.finished = true;
             finish(entry, future, new Refresh(Disposition.COMPLETED, entry.snapshot, Optional.empty()));
         }
     }

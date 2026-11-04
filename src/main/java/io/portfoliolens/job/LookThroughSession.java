@@ -420,9 +420,11 @@ public final class LookThroughSession implements RefreshGateway
         var latest = coordinator.read(account, fund);
         var retained = store.read(account, fund);
         var resolutions = latest.resolutions();
-        // After a restart a stored composition is shown from stored classifications
-        // until a refresh replaces them.
-        if (resolutions.isEmpty() && latest.latestAttempt().isEmpty() && retained.usableComposition().isPresent())
+        // In a new process a stored composition is shown from stored classifications
+        // until a successful refresh replaces them. This also holds when the latest
+        // attempt of this run failed: a failed refresh must not lose the
+        // classifications that the retained composition already had.
+        if (resolutions.isEmpty() && retained.usableComposition().isPresent())
         {
             var composition = retained.usableComposition().get().source();
             var key = new Key(account, fund.identifiers());

@@ -120,4 +120,39 @@ public class PersistedAdmissionStateTest
         assertEquals(List.of(new Attempt(fund.identifiers(), START, Instant.MIN, false)),
                         coordinator.attempts(account));
     }
+
+    @Test
+    public void testUnfinishedAttemptIsNotPersisted()
+    {
+        var now = START;
+        var clock = Clock.fixed(now, ZoneOffset.UTC);
+        var queued = new java.util.ArrayList<Runnable>();
+        var provider = new FundCompositionProvider()
+        {
+            @Override
+            public String getId()
+            {
+                return "synthetic";
+            }
+
+            @Override
+            public CompositionPersistencePolicy getPersistencePolicy(ProviderAccount requested)
+            {
+                throw new AssertionError();
+            }
+
+            @Override
+            public CompositionResult getComposition(ProviderAccount requested, CompositionInstrument fund)
+            {
+                // the process ends before the answer arrives
+                throw new AssertionError("not reached in this test");
+            }
+        };
+        var coordinator = new CompositionRefreshCoordinator(provider, budget(now), clock, queued::add, 1, 1, 0, 1,
+                        (requested, source) -> List.of());
+        var fund = new CompositionInstrument("Synthetic fund", Map.of("isin", "XX0000000017"));
+        coordinator.refresh(account, fund, false);
+        assertEquals(1, queued.size());
+        assertEquals(List.of(), coordinator.attempts(account));
+    }
 }

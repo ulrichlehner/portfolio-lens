@@ -218,8 +218,18 @@ public final class LensRun
             var funds = funds(scope);
             var refreshes = new LinkedHashMap<CompositionInstrument, Refresh>();
             int pending = 0;
+            CompanyEnrichmentService enrichment = null;
             if (settings.providerEnabled())
             {
+                // enabled before the refreshes: classification and enrichment then share one
+                // profile cache, so each company profile is requested once
+                enrichment = session.enableEnrichment(ACCOUNT, provider::profile, provider::revenueRegions,
+                                new GleifCompanyRegister(GleifCompanyRegister.transport(providerHttp),
+                                                environment.registerPause(), clock),
+                                settings::registerLookup, companies, enrichmentExecutor,
+                                (task, delay) -> {
+                                    // retries are left to the next run
+                                });
                 var futures = new LinkedHashMap<CompositionInstrument, CompletableFuture<Refresh>>();
                 for (var fund : funds)
                     futures.put(fund, session.refresh(ACCOUNT, fund, false));
@@ -239,15 +249,8 @@ public final class LensRun
             LOG.info(LookThroughAnalysis.diagnostics(result));
 
             var attributes = CompanyEnrichmentService.Snapshot.empty();
-            if (settings.providerEnabled())
+            if (enrichment != null)
             {
-                var enrichment = session.enableEnrichment(ACCOUNT, provider::profile, provider::revenueRegions,
-                                new GleifCompanyRegister(GleifCompanyRegister.transport(providerHttp),
-                                                environment.registerPause(), clock),
-                                settings::registerLookup, companies, enrichmentExecutor,
-                                (task, delay) -> {
-                                    // retries are left to the next run
-                                });
                 session.enrich(result.companies());
                 waitIdle(enrichment, deadline);
                 attributes = enrichment.snapshot();

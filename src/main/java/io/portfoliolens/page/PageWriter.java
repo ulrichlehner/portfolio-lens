@@ -59,9 +59,22 @@ public final class PageWriter
     private static final int CHART_WIDTH = 640;
     private static final int TREEMAP_HEIGHT = 380;
 
+    /** Company rows rendered into the page; the rest is built from the embedded data on demand. */
+    public static final int TOP_ROWS = 200;
+    /**
+     * Treemap tiles smaller than this area (in chart units, the chart is 640 x 380) are merged
+     * into one "Other" tile per group, so the page stays small for thousands of companies.
+     */
+    public static final double MIN_TILE_AREA = 140;
+
     private final PageInput input;
     private final LookThroughViewPresenter presenter = new LookThroughViewPresenter();
-    private final StringBuilder out = new StringBuilder(64 * 1024);
+    private final StringBuilder out = new StringBuilder(256 * 1024);
+    /** Company rows of the Company grouping by the identity part of their key. */
+    private final Map<List<Object>, Integer> companyIndex = new java.util.HashMap<>();
+    private final List<CompanyRow> companies = new ArrayList<>();
+    /** Strings of the embedded data, stored once and referenced by index. */
+    private final Map<String, Integer> stringIndex = new java.util.LinkedHashMap<>();
 
     private PageWriter(PageInput input)
     {
@@ -116,6 +129,12 @@ public final class PageWriter
         for (var grouping : Grouping.values())
             models.put(grouping, presenter.present(input.result(), grouping, input.attributes()));
         var company = models.get(Grouping.COMPANY);
+        for (var row : company.rows())
+            if (row instanceof CompanyRow c)
+            {
+                companyIndex.putIfAbsent(identity(c.key()), companies.size());
+                companies.add(c);
+            }
 
         add("<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n",
                         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n",
@@ -152,7 +171,7 @@ public final class PageWriter
 
     private void header(Model company)
     {
-        add("<header class=\"page\"><h1>", TITLE, "</h1><p class=\"meta\">Portfolio Lens &middot; ",
+        add("<header class=\"page\"><h1 id=\"heading\">", TITLE, "</h1><p class=\"meta\">Portfolio Lens &middot; ",
                         e(input.fileLabel()), " &middot; ", e(company.summary().asOfText()), " &middot; Generated ",
                         "<time id=\"generated\" datetime=\"", input.generatedAt().toString(), "\">",
                         e(time(input.generatedAt())), "</time></p>",
@@ -270,8 +289,8 @@ public final class PageWriter
 
     private void view(Grouping grouping, Model model, List<String> companyNotices)
     {
-        add("<section class=\"view\" id=\"view-", grouping.name(), "\" data-grouping=\"", grouping.name(), "\"",
-                        grouping == Grouping.COMPANY ? "" : " hidden", ">");
+        add("<section class=\"view\" id=\"view-", grouping.name(), "\" data-grouping=\"", grouping.name(),
+                        "\" data-title=\"", e(heading(grouping)), "\"", grouping == Grouping.COMPANY ? "" : " hidden", ">");
         for (var line : noticeLines(model))
             if (!companyNotices.contains(line))
                 add("<p class=\"view-notice\">", e(line), "</p>");
@@ -293,18 +312,50 @@ public final class PageWriter
         add("</section>\n");
     }
 
-    private static String rowId(Grouping grouping, RowKey key)
+    /** The page heading of a grouping, for example "Breakdown by Sector". */
+    static String heading(Grouping grouping)
+    {
+        return "Breakdown by " + grouping.label();
+    }
+
+    /** The company identity part of a row key: the kind and the identity, without suffixes. */
+    private static List<Object> identity(RowKey key)
+    {
+        var parts = key.parts();
+        return List.copyOf(parts.subList(0, Math.min(2, parts.size())));
+    }
+
+    private static String hash(Object value)
     {
         try
         {
             var digest = java.security.MessageDigest.getInstance("SHA-256")
-                            .digest(key.parts().toString().getBytes(StandardCharsets.UTF_8));
-            return grouping.name().toLowerCase(Locale.ROOT) + "-" + HexFormat.of().formatHex(digest, 0, 6);
+                            .digest(String.valueOf(value).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest, 0, 5);
         }
         catch (java.security.NoSuchAlgorithmException e)
         {
             throw new IllegalStateException(e);
         }
+    }
+
+    /** Row id of a company in the Company table; members of a grouping prefix it with the grouping. */
+    private static String companyId(RowKey key)
+    {
+        return "c" + hash(identity(key).toString());
+    }
+
+    private static String rowId(Grouping grouping, RowKey key)
+    {
+        if (!key.parts().isEmpty() && key.parts().get(0) == LookThroughViewPresenter.RowKind.COMPANY)
+            return grouping == Grouping.COMPANY ? companyId(key)
+                            : grouping.name().toLowerCase(Locale.ROOT) + "-" + companyId(key);
+        return grouping.name().toLowerCase(Locale.ROOT) + "-g" + hash(key.parts().toString());
+    }
+
+    private int string(String text)
+    {
+        return stringIndex.computeIfAbsent(text, ignored -> stringIndex.size());
     }
 
     private static String fraction(double value)
@@ -314,7 +365,7 @@ public final class PageWriter
 
     private static String num(double value)
     {
-        return String.format(Locale.ROOT, "%.2f", value);
+        return String.format(Locale.ROOT, "%.1f", value);
     }
 
     private String tileTitle(ChartCompany company, String currency)
@@ -330,6 +381,47 @@ public final class PageWriter
         return String.join("\n", lines);
     }
 
+    /** The members of a tile area, with the small ones merged into one "Other" entry. */
+    private record Merged(List<ChartCompany> shown, int otherCount, double otherWeight, double otherDirect)
+    {
+    }
+
+    private static Merged merge(List<ChartCompany> members, double scale)
+    {
+        var shown = new ArrayList<ChartCompany>();
+        int count = 0;
+        double weight = 0;
+        double direct = 0;
+        for (var member : members)
+        {
+            var value = member.total().doubleValue();
+            if (value * scale >= MIN_TILE_AREA)
+                shown.add(member);
+            else if (value > 0)
+            {
+                count++;
+                weight += value;
+                direct += value * member.directFraction();
+            }
+        }
+        return new Merged(shown, count, weight, direct);
+    }
+
+    /** A tile of the treemap: a company, or the merged small companies of an area. */
+    private record TileItem(ChartCompany company, int otherCount, double weight, double directFraction)
+    {
+    }
+
+    private static List<TileItem> items(Merged merged)
+    {
+        var items = new ArrayList<TileItem>();
+        merged.shown().forEach(c -> items.add(new TileItem(c, 0, c.total().doubleValue(), c.directFraction())));
+        if (merged.otherCount() > 0)
+            items.add(new TileItem(null, merged.otherCount(), merged.otherWeight(),
+                            merged.otherWeight() > 0 ? merged.otherDirect() / merged.otherWeight() : 0));
+        return items;
+    }
+
     private void treemap(Grouping grouping, ChartModel chart)
     {
         var currency = input.result().valuation().valuedSubset().getCurrencyCode();
@@ -340,8 +432,10 @@ public final class PageWriter
                         String.valueOf(TREEMAP_HEIGHT), "\"/>");
         if (chart.isGrouped())
         {
+            var total = chart.groups().stream().mapToDouble(g -> g.group().total().doubleValue()).sum();
+            var scale = total > 0 ? area.area() / total : 0;
             var layout = TreemapLayout.grouped(chart.groups(), g -> g.group().total().doubleValue(),
-                            LookThroughViewPresenter.ChartGroup::companies, c -> c.total().doubleValue(), area);
+                            g -> items(merge(g.companies(), scale)), TileItem::weight, item -> item.company() == null, area);
             for (var group : layout)
             {
                 var r = group.rect();
@@ -359,22 +453,36 @@ public final class PageWriter
         }
         else
         {
-            for (var tile : TreemapLayout.squarify(chart.companies(), c -> c.total().doubleValue(), area))
+            var total = chart.companies().stream().mapToDouble(c -> c.total().doubleValue()).sum();
+            var scale = total > 0 ? area.area() / total : 0;
+            for (var tile : TreemapLayout.squarify(items(merge(chart.companies(), scale)), TileItem::weight,
+                            item -> item.company() == null, area))
                 tile(grouping, tile.item(), tile.rect(), currency);
         }
         add("</svg>");
     }
 
-    private void tile(Grouping grouping, ChartCompany company, Rect r, String currency)
+    private void tile(Grouping grouping, TileItem item, Rect r, String currency)
     {
+        if (item.company() == null)
+        {
+            var text = item.otherCount() + " smaller companies";
+            add("<g><rect class=\"tm-tile tm-other\" style=\"--direct:", fraction(item.directFraction()), "\" x=\"",
+                            num(r.x()), "\" y=\"", num(r.y()), "\" width=\"", num(r.width()), "\" height=\"",
+                            num(r.height()), "\"><title>", e(text + "\n" + LookThroughViewPresenter.formatAmount(
+                                            BigDecimal.valueOf(item.weight()), currency)),
+                            "</title></rect>");
+            if (r.width() >= 48 && r.height() >= 20)
+                label(r.x() + 4, r.y() + 14, r.width() - 8, text, "tm-label");
+            add("</g>");
+            return;
+        }
+        var company = item.company();
         var id = rowId(grouping, company.key());
-        // tiles too small for a gap are drawn without one
-        var gap = r.width() > 4 && r.height() > 4 ? 0.5 : 0;
         add("<a href=\"#", id, "\" data-row=\"", id, "\"><rect class=\"tm-tile\" style=\"--direct:",
-                        fraction(company.directFraction()), "\" x=\"", num(r.x() + gap), "\" y=\"", num(r.y() + gap),
-                        "\" width=\"", num(Math.max(0, r.width() - 2 * gap)), "\" height=\"",
-                        num(Math.max(0, r.height() - 2 * gap)), "\"><title>", e(tileTitle(company, currency)),
-                        "</title></rect>");
+                        fraction(company.directFraction()), "\" x=\"", num(r.x()), "\" y=\"", num(r.y()),
+                        "\" width=\"", num(r.width()), "\" height=\"", num(r.height()), "\"><title>",
+                        e(tileTitle(company, currency)), "</title></rect>");
         if (r.width() >= 48 && r.height() >= 30)
         {
             label(r.x() + 4, r.y() + 14, r.width() - 8, company.label(), "tm-label");
@@ -431,34 +539,38 @@ public final class PageWriter
         var currency = model.currencyCode();
         var second = grouping == Grouping.COMPANY ? Texts.LookThroughColumnCompany
                         : MessageFormat.format(Texts.LookThroughColumnGrouped, grouping.label());
-        add("<table class=\"breakdown\"><thead><tr><th class=\"rank\">", e(Texts.LookThroughColumnRank),
-                        "</th><th data-sort=\"label\">", e(second), "</th><th class=\"num\" data-sort=\"direct\">",
-                        e(Texts.LookThroughColumnDirect), "</th><th class=\"num\" data-sort=\"indirect\">",
-                        e(Texts.LookThroughColumnIndirect), "</th><th class=\"num\" data-sort=\"total\">",
-                        e(Texts.LookThroughColumnTotal), "</th><th class=\"num\" data-sort=\"total\">",
-                        e(Texts.LookThroughColumnShare), "</th></tr></thead>");
+        add("<table class=\"breakdown\" data-grouping=\"", grouping.name(), "\"><thead><tr><th class=\"rank\">",
+                        e(Texts.LookThroughColumnRank), "</th><th data-sort=\"label\">", e(second),
+                        "</th><th class=\"num\" data-sort=\"direct\">", e(Texts.LookThroughColumnDirect),
+                        "</th><th class=\"num\" data-sort=\"indirect\">", e(Texts.LookThroughColumnIndirect),
+                        "</th><th class=\"num\" data-sort=\"total\">", e(Texts.LookThroughColumnTotal),
+                        "</th><th class=\"num\" data-sort=\"total\">", e(Texts.LookThroughColumnShare),
+                        "</th></tr></thead>");
         int rank = 0;
+        int groupIndex = 0;
+        int companyCount = 0;
         for (var row : model.rows())
         {
             if (row instanceof CompanyRow company)
             {
-                companyBlock(grouping, company, ++rank, currency, false);
+                rank++;
+                companyCount++;
+                if (rank <= TOP_ROWS)
+                    companyBlock(company, rank, currency);
             }
             else if (row instanceof GroupRow group)
             {
                 var ranked = group.groupKind() == GroupKind.REGULAR;
                 var id = rowId(grouping, group.key());
-                add("<tbody class=\"block group\" data-label=\"", e(group.label()), "\" data-direct=\"",
-                                group.direct().toPlainString(), "\" data-indirect=\"", group.indirect().toPlainString(),
-                                "\" data-total=\"", group.total().toPlainString(), "\"><tr id=\"", id,
-                                "\" class=\"top\"><td class=\"rank\">", ranked ? String.valueOf(++rank) : "",
+                add("<tbody class=\"block group\" data-group=\"", String.valueOf(groupIndex++), "\" data-label=\"",
+                                e(group.label()), "\" data-direct=\"", group.direct().toPlainString(),
+                                "\" data-indirect=\"", group.indirect().toPlainString(), "\" data-total=\"",
+                                group.total().toPlainString(), "\"><tr id=\"", id, "\" class=\"top\"><td class=\"rank\">",
+                                ranked ? String.valueOf(++rank) : "",
                                 "</td><td><button type=\"button\" class=\"toggle\" aria-expanded=\"false\">",
                                 e(group.label()), " (", String.valueOf(group.count()), ")</button></td>");
                 amounts(group.direct(), group.indirect(), group.total(), group.shareText(), currency);
-                add("</tr>");
-                for (var member : group.companies())
-                    companyRow(grouping, member, currency, true);
-                add("</tbody>");
+                add("</tr></tbody>");
             }
             else if (row instanceof CategoryRow category)
             {
@@ -489,29 +601,20 @@ public final class PageWriter
                                 "</span></td><td></td><td></td><td></td><td></td></tr></tbody>");
             }
         }
+        if (grouping == Grouping.COMPANY && companyCount > TOP_ROWS)
+            add("<tbody class=\"more fixed\"><tr><td></td><td colspan=\"5\">Showing the ", String.valueOf(TOP_ROWS),
+                            " largest of ", String.valueOf(companyCount),
+                            " companies. <button type=\"button\" class=\"show-more\" hidden>Show more</button>",
+                            "</td></tr></tbody>");
         add("</table>");
     }
 
-    private void companyBlock(Grouping grouping, CompanyRow company, int rank, String currency, boolean child)
+    private void companyBlock(CompanyRow company, int rank, String currency)
     {
-        add("<tbody class=\"block company\" data-label=\"", e(company.label()), "\" data-direct=\"",
-                        company.direct().toPlainString(), "\" data-indirect=\"", company.indirect().toPlainString(),
-                        "\" data-total=\"", company.total().toPlainString(), "\">");
-        companyRowWithRank(grouping, company, currency, child, String.valueOf(rank));
-        add("</tbody>");
-    }
-
-    private void companyRow(Grouping grouping, CompanyRow company, String currency, boolean child)
-    {
-        companyRowWithRank(grouping, company, currency, child, "");
-    }
-
-    private void companyRowWithRank(Grouping grouping, CompanyRow company, String currency, boolean child,
-                    String rank)
-    {
-        var id = rowId(grouping, company.key());
-        add("<tr id=\"", id, "\" class=\"", child ? "child" : "top", "\"", child ? " hidden" : "",
-                        "><td class=\"rank\">", rank, "</td><td><details><summary>", e(company.label()), "</summary>");
+        var id = companyId(company.key());
+        add("<tbody class=\"block company\" data-index=\"", String.valueOf(rank - 1), "\"><tr id=\"", id,
+                        "\" class=\"top\"><td class=\"rank\">", String.valueOf(rank), "</td><td><details><summary>",
+                        e(company.label()), "</summary>");
         company.detail().ifPresent(detail -> add("<p class=\"detail\">", e(detail), "</p>"));
         add("<ul class=\"contrib\">");
         for (ContributionRow contribution : company.contributions())
@@ -520,7 +623,7 @@ public final class PageWriter
                             contribution.shareText().map(s -> " (" + e(s) + ")").orElse(""), "</li>");
         add("</ul></details></td>");
         amounts(company.direct(), company.indirect(), company.total(), company.shareText(), currency);
-        add("</tr>");
+        add("</tr></tbody>");
     }
 
     private void amounts(BigDecimal direct, BigDecimal indirect, BigDecimal total, Optional<String> share,
@@ -665,31 +768,80 @@ public final class PageWriter
         json.addProperty("currency", company.currencyCode());
         json.addProperty("providerData", input.provider().name().toLowerCase(Locale.ROOT));
         json.addProperty("pendingLookups", input.pendingLookups());
-        var groupings = new JsonArray();
+        json.addProperty("topRows", TOP_ROWS);
+        company.denominator().ifPresent(d -> json.addProperty("denominator", d.getAmount()));
+        var groupings = new JsonObject();
         for (var grouping : Grouping.values())
-            groupings.add(grouping.name());
-        json.add("groupings", groupings);
-        var companies = new JsonArray();
-        for (var row : company.rows())
-            if (row instanceof CompanyRow c)
+            groupings.addProperty(grouping.name(), heading(grouping));
+        json.add("headings", groupings);
+
+        // companies in rank order: [id, label, direct, indirect, detail, [[source, value, direct], ...]]
+        var rows = new JsonArray();
+        for (var c : companies)
+        {
+            var row = new JsonArray();
+            row.add(companyId(c.key()));
+            row.add(c.label());
+            row.add(amount(c.direct()));
+            row.add(amount(c.indirect()));
+            row.add(c.detail().map(this::string).orElse(-1));
+            var contributions = new JsonArray();
+            for (var contribution : c.contributions())
             {
-                var item = new JsonObject();
-                item.addProperty("label", c.label());
-                item.addProperty("direct", hundredths(c.direct()));
-                item.addProperty("indirect", hundredths(c.indirect()));
-                item.addProperty("total", hundredths(c.total()));
-                c.share().ifPresent(s -> item.addProperty("share", s));
-                companies.add(item);
+                var item = new JsonArray();
+                item.add(string(contribution.sourceText()));
+                item.add(amount(contribution.value()));
+                item.add(contribution.direct() ? 1 : 0);
+                contributions.add(item);
             }
-        json.add("companies", companies);
+            row.add(contributions);
+            rows.add(row);
+        }
+        json.add("c", rows);
+
+        // members of each group: [company index, factor, detail]; factor below 1 splits by revenue
+        var groups = new JsonObject();
+        for (var entry : models.entrySet())
+        {
+            if (entry.getKey() == Grouping.COMPANY)
+                continue;
+            var list = new JsonArray();
+            for (var row : entry.getValue().rows())
+                if (row instanceof GroupRow group)
+                {
+                    var members = new JsonArray();
+                    for (var member : group.companies())
+                    {
+                        var index = companyIndex.get(identity(member.key()));
+                        if (index == null)
+                            continue;
+                        var full = companies.get(index).total();
+                        var factor = full.signum() == 0 ? 1d
+                                        : member.total().divide(full, 8, RoundingMode.HALF_UP).doubleValue();
+                        var item = new JsonArray();
+                        item.add(index);
+                        item.add(Math.abs(factor - 1) < 1e-9 ? 1 : factor);
+                        item.add(member.detail().map(this::string).orElse(-1));
+                        members.add(item);
+                    }
+                    list.add(members);
+                }
+            groups.add(entry.getKey().name(), list);
+        }
+        json.add("g", groups);
+
+        var strings = new JsonArray();
+        stringIndex.keySet().forEach(strings::add);
+        json.add("s", strings);
         return json;
     }
 
-    /** Amounts in the embedded data are decimals in the reporting currency. */
-    private static BigDecimal hundredths(BigDecimal value)
+    /** Amounts of the embedded data in hundredths, as the calculation keeps them. */
+    private static long amount(BigDecimal value)
     {
-        return value.movePointLeft(2).setScale(2, RoundingMode.HALF_UP);
+        return value.setScale(0, RoundingMode.HALF_UP).longValueExact();
     }
+
 
     /** For tests: the settings that the page may name. */
     static Set<String> namedSettings()

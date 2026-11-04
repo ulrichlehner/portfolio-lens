@@ -72,6 +72,10 @@ Request budget usage, provider backoff and suspension, per-fund attempt times an
 - **WHEN** runs within 24 hours together used the whole configured request budget
 - **THEN** the next run within that window sends no provider request and the page reports the pending lookups.
 
+#### Scenario: Attempt cut off by the time limit
+- **WHEN** a run ends while a fund request is still running
+- **THEN** that attempt is not recorded, and the next run requests the fund again instead of waiting for the 24-hour cadence.
+
 #### Scenario: State file lost
 - **WHEN** the state file is missing or unreadable
 - **THEN** the run starts with an empty state, logs that it did, and completes.
@@ -110,3 +114,15 @@ The job SHALL log to standard error with one line per event: run start, skip, co
 #### Scenario: Normal run log
 - **WHEN** a run completes at the default log level
 - **THEN** the log names the number of funds, provider requests, pending lookups and the output file, and no amount or holding name.
+
+### Requirement: Budget reporting
+Each run SHALL record in the status file the request units used in the rolling 24-hour window, the capacity and whether the budget is used up, and SHALL log a warning while it is used up. Funds SHALL be refreshed in descending value, so that a first fill that spreads over several runs covers the largest holdings first.
+
+#### Scenario: First fill of a large portfolio
+- **WHEN** a synthetic portfolio of 4,000 companies is analysed for the first time with the default budget
+- **THEN** the run completes without pending lookups, and the status file reports the used units below the capacity.
+
+#### Scenario: Budget used up
+- **WHEN** the configured budget is used up
+- **THEN** the status file reports the budget as used up and the log contains a warning naming the budget setting.
+

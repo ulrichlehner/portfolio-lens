@@ -91,4 +91,13 @@ public class TreemapLayoutTest
                         * (first.rect().height() - TreemapLayout.GROUP_HEADER - TreemapLayout.GROUP_BORDER);
         assertEquals(inner, memberArea, 1e-6);
     }
+
+    @Test
+    public void testMergedTileIsPlacedLast()
+    {
+        var tiles = TreemapLayout.squarify(List.of(50d, 10d, 8d, 6d), w -> w, w -> w == 50d, AREA);
+        assertEquals(50d, tiles.get(tiles.size() - 1).item());
+        assertEquals(10d, tiles.get(0).item());
+        assertEquals(AREA.area(), tiles.stream().mapToDouble(t -> t.rect().area()).sum(), 1e-6);
+    }
 }

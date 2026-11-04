@@ -70,6 +70,9 @@ public class LargePortfolioTest
             Files.writeString(Path.of(demo).resolve("large.html"), page);
         }
         assertTrue(page.contains("Invented Company 1 Inc."));
+        // a few MB at most for about 4,000 companies (finding of the first real run: 21.8 MB)
+        assertTrue(bytes < 3_000_000, "page size " + bytes);
+        assertTrue(elements < 30_000, "elements " + elements);
         // the default budget covers the first fill of 4,000 companies in one day
         var status = com.google.gson.JsonParser.parseString(Files.readString(temp.resolve("out/status.json")))
                         .getAsJsonObject();

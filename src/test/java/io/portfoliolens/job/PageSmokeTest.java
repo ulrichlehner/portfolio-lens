@@ -98,8 +98,13 @@ public class PageSmokeTest
         assertFalse(page.contains("/synthetic/path"));
 
         // without scripts the Company grouping is visible and the others hidden
-        assertTrue(page.contains("id=\"view-COMPANY\" data-grouping=\"COMPANY\">"));
-        assertTrue(page.contains("id=\"view-SECTOR\" data-grouping=\"SECTOR\" hidden>"));
+        assertTrue(page.contains("id=\"view-COMPANY\" data-grouping=\"COMPANY\" data-title=\"Breakdown by Company\">"));
+        assertTrue(page.contains("id=\"view-SECTOR\" data-grouping=\"SECTOR\" data-title=\"Breakdown by Sector\" hidden>"));
+        // the heading follows the grouping: the script takes it from the embedded data
+        assertTrue(page.contains("<h1 id=\"heading\">Breakdown by Company</h1>"));
+        assertTrue(page.contains("\"COUNTRY\":\"Breakdown by Country (headquarters)\""));
+        // same-coloured tiles are separated by a stroke
+        assertTrue(page.contains("stroke:var(--bg);stroke-width:1;vector-effect:non-scaling-stroke"));
         assertTrue(page.contains("<select id=\"grouping\" disabled>"));
 
         // generation time, staleness slot, data status collapsed on load, dark palette

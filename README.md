@@ -7,8 +7,8 @@ sector, country and region.
 Portfolio Lens runs next to Portfolio Performance and reads the open portfolio through its local
 REST API. It never changes the portfolio.
 
-**Status:** early development. The command-line job works against synthetic test data; it has not
-been run against a real Portfolio Performance yet. The plan is in [`openspec/`](openspec/).
+**Status:** early development. The command-line job has been tested against synthetic data and once
+against Portfolio Performance 0.90.0. The plan is in [`openspec/`](openspec/).
 
 ## Notice
 
@@ -32,6 +32,12 @@ The `run` command is a job that runs once and exits:
 Run it every 5 to 15 minutes from a scheduler. A run whose inputs did not change and that has no
 provider work due does nothing except record the time of the check. Provider requests stay within a
 request budget and a 24-hour cadence per fund across runs.
+
+The first fill needs about two Eulerpool requests per company (profile and revenue regions) plus a
+few per fund: about 8,000 of the default 20,000 daily units for 4,000 companies. Because each run
+stops provider work after `LENS_RUN_TIMEOUT`, a first fill usually spreads over several runs; funds
+are filled largest first, and nothing resolved in an earlier run is lost while the rest follows.
+`status.json` and the page show the units used.
 
 The page is one self-contained file. It loads nothing from the network, follows the light or dark
 system setting, and shows when it was generated. Grouping by country, region, sector, industry,
@@ -138,6 +144,18 @@ Overlapping runs are safe: a run that finds another one active exits without cha
   no amounts, no provider payloads, no secrets). The directory is created readable only by its owner.
 - `LENS_OUTPUT_DIR`: `index.html` and `status.json`. The page contains your holdings and values;
   serve it only behind authentication.
+
+The page holds every company once, in its embedded data, and renders the 200 largest rows; further
+rows, the companies of a group and small treemap companies are built on demand. For 4,000 companies
+it is about 1.4 MB, about 0.2 MB compressed. Serve it compressed, for example with Caddy:
+
+```
+handle_path /lens/* {
+	root * /srv/portfolio-lens
+	encode zstd gzip
+	file_server
+}
+```
 
 ## Development
 

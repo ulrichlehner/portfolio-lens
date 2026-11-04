@@ -49,8 +49,20 @@ public final class TreemapLayout
     /** Lays out the items with a positive weight in descending weight over the area. */
     public static <T> List<Tile<T>> squarify(List<T> items, ToDoubleFunction<T> weight, Rect area)
     {
+        return squarify(items, weight, item -> false, area);
+    }
+
+    /**
+     * Like {@link #squarify(List, ToDoubleFunction, Rect)}, but the items matching {@code last}
+     * are placed after all others whatever their weight, for example a tile that merges the
+     * smallest items.
+     */
+    public static <T> List<Tile<T>> squarify(List<T> items, ToDoubleFunction<T> weight,
+                    java.util.function.Predicate<T> last, Rect area)
+    {
+        var byWeight = Comparator.comparingDouble(weight).reversed();
         var sorted = items.stream().filter(item -> weight.applyAsDouble(item) > 0)
-                        .sorted(Comparator.comparingDouble(weight).reversed()).toList();
+                        .sorted(Comparator.comparing((T item) -> last.test(item)).thenComparing(byWeight)).toList();
         var result = new ArrayList<Tile<T>>();
         if (sorted.isEmpty() || area.area() <= 0)
             return result;
@@ -93,6 +105,13 @@ public final class TreemapLayout
     public static <G, T> List<GroupTile<G, T>> grouped(List<G> groups, ToDoubleFunction<G> weight,
                     java.util.function.Function<G, List<T>> members, ToDoubleFunction<T> memberWeight, Rect area)
     {
+        return grouped(groups, weight, members, memberWeight, item -> false, area);
+    }
+
+    public static <G, T> List<GroupTile<G, T>> grouped(List<G> groups, ToDoubleFunction<G> weight,
+                    java.util.function.Function<G, List<T>> members, ToDoubleFunction<T> memberWeight,
+                    java.util.function.Predicate<T> last, Rect area)
+    {
         var result = new ArrayList<GroupTile<G, T>>();
         for (var tile : squarify(groups, weight, area))
         {
@@ -100,7 +119,7 @@ public final class TreemapLayout
             var header = rect.width() >= MINIMUM_GROUP_WIDTH && rect.height() >= MINIMUM_GROUP_HEIGHT;
             var inner = header ? rect.inset(GROUP_BORDER, GROUP_HEADER, GROUP_BORDER, GROUP_BORDER) : rect;
             result.add(new GroupTile<>(tile.item(), rect, header,
-                            squarify(members.apply(tile.item()), memberWeight, inner)));
+                            squarify(members.apply(tile.item()), memberWeight, last, inner)));
         }
         return result;
     }

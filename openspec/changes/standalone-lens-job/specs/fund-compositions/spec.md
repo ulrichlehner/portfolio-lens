@@ -14,6 +14,17 @@ Failed retrieval or validation SHALL NOT replace an existing usable snapshot wit
 - **THEN** the system deletes it and marks affected exposure unresolved until usable data is retrieved.
 
 
+### Requirement: No loss of earlier resolutions
+A run SHALL NOT resolve fewer instruments than the stored data allows because of an exhausted budget, a failed refresh or the run time limit. A retained composition SHALL be used with the stored classifications of its constituents until a successful refresh replaces them.
+
+#### Scenario: Failed refresh after the cadence
+- **WHEN** a fund is refreshed after 24 hours and the provider answers with errors
+- **THEN** the run resolves at least as many instruments as the run before, using the stored composition and classifications.
+
+#### Scenario: Budget used up on a later run
+- **WHEN** a later run within the same day finds the budget used up
+- **THEN** it resolves at least as many instruments as the earlier run.
+
 ### Requirement: Lens cache directory
 Provider compositions, classifications, company profiles and revenue splits SHALL be stored only in the configured Lens cache directory, never in the PP workspace, the portfolio file, the output directory or the repository. The output page MAY contain results derived from them.
 

@@ -52,8 +52,9 @@ final class Style
                     figure{margin:0}figcaption{font-weight:600;margin-bottom:4px}.scale{font-weight:400;color:var(--muted);margin-left:10px}
                     svg.treemap,svg.bars{width:100%;height:auto;display:block}svg.matrix{max-width:100%;height:auto;display:block}
                     .tm-bg,.tm-group{fill:var(--tm-bg)}.tm-group{stroke:var(--bg);stroke-width:1.5}
-                    .tm-tile{fill:color-mix(in srgb,var(--c-direct) calc(var(--direct)*100%),var(--c-indirect))}
-                    a:hover .tm-tile,a:focus .tm-tile,.tm-tile.selected{stroke:var(--fg);stroke-width:2}
+                    .tm-tile{fill:color-mix(in srgb,var(--c-direct) calc(var(--direct)*100%),var(--c-indirect));stroke:var(--bg);stroke-width:1;vector-effect:non-scaling-stroke}
+.tm-other{opacity:.75}
+                    a:hover .tm-tile,a:focus .tm-tile,.tm-tile.selected,.tm-group.selected{stroke:var(--fg);stroke-width:2}
                     .tm-label,.tm-share,.tm-group-label{font-size:11px;fill:var(--tm-label);pointer-events:none}
                     .tm-group-label{font-weight:600}.tm-share{opacity:.85}
                     .bar-label,.bar-value,.mx-label{font-size:11px;fill:var(--fg)}.bar-value{fill:var(--muted)}
@@ -73,7 +74,8 @@ final class Style
                     .contrib{margin:4px 0 2px 18px;padding:0;font-size:12px;color:var(--muted)}
                     .contrib li.direct::marker{color:var(--c-direct)}.detail{font-size:12px;color:var(--muted);margin:2px 0}
                     .toggle{font:inherit;background:none;border:0;padding:0;color:inherit;cursor:pointer;text-align:left}
-                    .toggle::before{content:"\\25B8  ";color:var(--muted)}.toggle[aria-expanded=true]::before{content:"\\25BE  "}
+                    .show-more{font:inherit;margin-left:8px}
+.toggle::before{content:"\\25B8  ";color:var(--muted)}.toggle[aria-expanded=true]::before{content:"\\25BE  "}
                     tr.child td:nth-child(2){padding-left:26px}
                     .view-notice{color:var(--muted);margin:10px 0 0}.empty{color:var(--muted);padding:24px 0}
                     .overlap{border-top:1px solid var(--line);padding-top:12px}

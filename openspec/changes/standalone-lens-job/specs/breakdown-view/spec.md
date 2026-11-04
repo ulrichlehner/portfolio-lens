@@ -30,7 +30,7 @@ The chart and table area SHALL be visually separated from the header above and f
 
 
 ### Requirement: Self-contained static page
-The Breakdown SHALL be one HTML file with inline styles, server-rendered SVG charts, embedded result data and inline scripts. It SHALL load nothing from the network. Without scripts it SHALL still show the summary, the coverage bar, the Company charts, the table and the data status.
+The Breakdown SHALL be one HTML file with inline styles, server-rendered SVG charts, embedded result data and inline scripts. It SHALL load nothing from the network. Without scripts it SHALL still show the summary, the coverage bar, the Company charts, the largest company rows of the table and the data status.
 
 #### Scenario: Opened offline
 - **WHEN** the page is opened from disk without network access
@@ -38,7 +38,25 @@ The Breakdown SHALL be one HTML file with inline styles, server-rendered SVG cha
 
 #### Scenario: Scripts disabled
 - **WHEN** the page is opened with scripts disabled
-- **THEN** the Company grouping is shown with its charts and table, and only grouping, sorting and linked selection are unavailable.
+- **THEN** the Company grouping is shown with its charts and its 200 largest company rows with their contributions, and only grouping, sorting, further rows and linked selection are unavailable.
+
+### Requirement: Page size
+The page SHALL hold each company once, in the embedded data, and render the 200 largest company rows and the group rows; further rows SHALL be built from the embedded data when the user asks for them, expands a group or selects a chart element. For a portfolio of about 4,000 companies the page SHALL stay below 3 MB and 30,000 elements.
+
+#### Scenario: Large portfolio
+- **WHEN** a page is generated for a synthetic portfolio of 4,000 companies held through ten funds
+- **THEN** the file is smaller than 3 MB, has fewer than 30,000 elements, and the company table offers to show the remaining rows.
+
+#### Scenario: Selecting a company in a collapsed group
+- **WHEN** the user selects the tile of a company whose group row is collapsed
+- **THEN** the group expands, its company rows are built, and the company row is selected and scrolled into view.
+
+### Requirement: Provider budget on the page
+When provider data is used, the data status SHALL state how many of the request units of the last 24 hours are used. While the budget is used up, the line SHALL be a warning that names when units free up.
+
+#### Scenario: Budget used up
+- **WHEN** the run that generated the page could not make further provider requests because the budget was used up
+- **THEN** the data status shows a warning with the used and available units and the time when units free up.
 
 ### Requirement: Generation time and staleness
 The page SHALL show when it was generated and the valuation date of the holdings. When opened more than one hour after generation, it SHALL show a notice that the page is older than expected and that the job may not be running.
@@ -62,6 +80,17 @@ The page SHALL NOT contain the PP token, the provider key, the PP file path, the
 - **THEN** none of these values occurs anywhere in the HTML.
 
 ## MODIFIED Requirements
+
+### Requirement: Treemap tiles and bar values
+The treemap SHALL show every company whose tile reaches a minimum area as its own tile, SHALL merge the smaller companies of each group into one tile placed after the others that names their number, SHALL separate adjacent tiles visibly, SHALL leave no area unpainted, and its legend SHALL be a labelled scale from directly held to held through funds. Each bar SHALL show its total amount and share next to it.
+
+#### Scenario: Many small companies
+- **WHEN** the result contains hundreds of companies with tiny exposure
+- **THEN** the larger companies keep their own tiles in size order, the companies below the minimum tile area form one tile per group placed last whose label and tooltip give their number and amount, adjacent tiles of the same color are separated by a thin line, and the chart area contains no blank region.
+
+#### Scenario: Bar values
+- **WHEN** the bar chart shows the largest companies
+- **THEN** each bar is followed by its total amount and share, and the value axis leaves enough room for the longest label.
 
 ### Requirement: Summary before detail
 The page SHALL open with a single header line naming the valuation date and the generation time, followed by a summary of the securities value, the resolved share, the share of the ten largest companies and the number of decomposed funds out of held funds. Explanatory notices SHALL NOT appear as permanent paragraphs; they SHALL be reachable through an indicator with a tooltip or the data status.
@@ -128,11 +157,11 @@ An always-visible status row SHALL separate the table from the data status, SHAL
 - **THEN** the data status opens or closes, and the row keeps showing the state.
 
 ### Requirement: Grouping selector
-The page SHALL offer a "Breakdown by" selector with Company, Country, Region, Sector, Industry, Currency and Revenue region. Company SHALL be the default. The selection SHALL be kept in the page address, so that reloading or sharing the address keeps it.
+The page SHALL offer a "Breakdown by" selector with Company, Country, Region, Sector, Industry, Currency and Revenue region. Company SHALL be the default. The selection SHALL be kept in the page address, so that reloading or sharing the address keeps it, and the page heading and title SHALL name the selected grouping.
 
 #### Scenario: Switch to country
 - **WHEN** the user selects Country
-- **THEN** the table, treemap and bar chart show countries, using the data embedded in the page only.
+- **THEN** the table, treemap and bar chart show countries, using the data embedded in the page only, and the heading and the page title read "Breakdown by Country (headquarters)".
 
 #### Scenario: Reload
 - **WHEN** the user reloads the page after selecting Sector

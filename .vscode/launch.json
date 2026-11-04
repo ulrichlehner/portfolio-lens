@@ -1,0 +1,35 @@
+// Run and debug the Lens CLI inside the dev container (Dev Containers: Reopen in Container).
+// The configuration comes from scratch/lens.env (gitignored, see docs/lens.env.example);
+// the forwarder from .devcontainer/pp-forward.sh makes PP on the host reachable at
+// http://127.0.0.1:5712.
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "lens run",
+      "request": "launch",
+      "mainClass": "io.portfoliolens.job.Main",
+      "projectName": "portfolio-lens",
+      "args": "run",
+      "envFile": "${workspaceFolder}/scratch/lens.env",
+      "env": {
+        "LENS_OUTPUT_DIR": "${workspaceFolder}/scratch/out",
+        "LENS_CACHE_DIR": "${workspaceFolder}/scratch/cache"
+      }
+    },
+    {
+      "type": "java",
+      "name": "lens check",
+      "request": "launch",
+      "mainClass": "io.portfoliolens.job.Main",
+      "projectName": "portfolio-lens",
+      "args": "check",
+      "envFile": "${workspaceFolder}/scratch/lens.env",
+      "env": {
+        "LENS_OUTPUT_DIR": "${workspaceFolder}/scratch/out",
+        "LENS_CACHE_DIR": "${workspaceFolder}/scratch/cache"
+      }
+    }
+  ]
+}

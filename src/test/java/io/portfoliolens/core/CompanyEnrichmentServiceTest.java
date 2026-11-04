@@ -1,0 +1,258 @@
+package io.portfoliolens.core;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+
+import io.portfoliolens.testing.TemporaryFolder;
+
+import io.portfoliolens.core.CompanyAttributes.Source;
+import io.portfoliolens.core.CompositionPersistencePolicy.Permission;
+import io.portfoliolens.core.CompositionRefreshCoordinator.EnrichmentFailure;
+import io.portfoliolens.core.InstrumentEvidence.Identifier;
+import io.portfoliolens.core.LookThroughResult.Company;
+
+/** Identifiers and values are invented. */
+@SuppressWarnings("nls")
+public class CompanyEnrichmentServiceTest
+{
+    private static final Instant START = Instant.parse("2026-01-01T12:00:00Z");
+    private static final ProviderAccount ACCOUNT = new ProviderAccount("synthetic", "local");
+    private static final String SMALL = "US0000000001";
+    private static final String LARGE = "KY0000000002";
+    private static final String MEDIUM = "XX0000000003";
+
+    private static final class MutableClock extends Clock
+    {
+        private Instant now = START;
+
+        @Override
+        public ZoneId getZone()
+        {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(ZoneId zone)
+        {
+            return this;
+        }
+
+        @Override
+        public Instant instant()
+        {
+            return now;
+        }
+    }
+
+    @RegisterExtension
+    public final TemporaryFolder temporary = new TemporaryFolder();
+
+    private final MutableClock clock = new MutableClock();
+    private final List<String> profileCalls = new ArrayList<>();
+    private final List<List<String>> registerCalls = new ArrayList<>();
+    private final Map<String, IOException> profileFailures = new HashMap<>();
+    private boolean registerEnabled;
+    private boolean profilesEnabled = true;
+
+    private static Company company(String isin, String value)
+    {
+        return new Company(new Identifier(InstrumentEvidence.ISIN, isin), new BigDecimal(value), BigDecimal.ZERO,
+                        List.of());
+    }
+
+    private static final List<Company> COMPANIES = List.of(company(SMALL, "10"), company(LARGE, "30"),
+                    company(MEDIUM, "20"), new Company(new Identifier("synthetic:id", "no-isin"), BigDecimal.ONE,
+                                    BigDecimal.ZERO, List.of()));
+
+    private CompanyEnrichmentService service(CompanyEnrichmentCache cache, CompositionRequestBudget budget)
+    {
+        return new CompanyEnrichmentService(ACCOUNT, (account, isin) -> {
+            profileCalls.add(isin);
+            var failure = profileFailures.get(isin);
+            if (failure != null)
+                throw failure;
+            if (isin.equals(MEDIUM))
+                return Optional.empty();
+            return Optional.of(new CompanyProfile(isin, Optional.of("US"), Optional.of("USD"),
+                            Optional.of("Invented sector"), Optional.empty(), Optional.empty(), clock.instant()));
+        }, () -> profilesEnabled, isins -> {
+            registerCalls.add(isins);
+            var result = new HashMap<String, Optional<RegisterRecord>>();
+            for (var isin : isins)
+                result.put(isin, isin.equals(LARGE)
+                                ? Optional.of(new RegisterRecord(isin, "SYNTHETICLEI00000001", Optional.of("HK"),
+                                                Optional.of("KY"), clock.instant()))
+                                : Optional.empty());
+            return result;
+        }, () -> registerEnabled, cache, budget, clock, Runnable::run);
+    }
+
+    private CompositionRequestBudget budget(long capacity)
+    {
+        return new CompositionRequestBudget(ACCOUNT.providerId(), clock, capacity, Duration.ofHours(24),
+                        Duration.ofMinutes(15));
+    }
+
+    private CompanyEnrichmentCache memory()
+    {
+        var cache = new CompanyEnrichmentCache(null, clock);
+        cache.configure(new CompositionPersistencePolicy(ACCOUNT, Permission.UNVERIFIED, Optional.empty()),
+                        Optional.empty());
+        return cache;
+    }
+
+    @Test
+    public void testLargestCompaniesFirstWithinBudgetAndRestIsUnknownUntilTheBudgetIsBack()
+    {
+        var budget = budget(2);
+        var service = service(memory(), budget);
+        service.schedule(COMPANIES);
+        assertEquals(List.of(LARGE, MEDIUM), profileCalls);
+        var snapshot = service.snapshot();
+        // No pass runs or retries soon, so the rest is unknown rather than pending.
+        assertEquals(0, snapshot.pending());
+        assertTrue(snapshot.waiting().isEmpty());
+        assertEquals(new CompanyEnrichmentService.Progress(2, 3, CompanyEnrichmentService.State.PAUSED,
+                        Optional.of(START.plus(Duration.ofHours(24)))), snapshot.progress());
+        var small = snapshot.attributes().get(new Identifier(InstrumentEvidence.ISIN, SMALL));
+        assertTrue(small.sector().isEmpty());
+        assertEquals(Source.ISIN_PREFIX, small.country().orElseThrow().source());
+        var large = snapshot.attributes().get(new Identifier(InstrumentEvidence.ISIN, LARGE));
+        assertEquals("Invented sector", large.sector().orElseThrow().value());
+        assertEquals(Source.PROVIDER, large.country().orElseThrow().source());
+        // A company without ISIN is reported, but never requested or pending.
+        assertTrue(snapshot.attributes().get(new Identifier("synthetic:id", "no-isin")).country().isEmpty());
+
+        // Enrichment continues when budget is available again.
+        clock.now = clock.now.plus(Duration.ofHours(25));
+        service.schedule(COMPANIES);
+        assertEquals(List.of(LARGE, MEDIUM, SMALL), profileCalls);
+        assertEquals(0, service.snapshot().pending());
+    }
+
+    @Test
+    public void testCachedAnswersAreNotRequestedAgainUntilThirtyDays()
+    {
+        var service = service(memory(), budget(100));
+        service.schedule(COMPANIES);
+        assertEquals(3, profileCalls.size());
+        // A "no profile" answer is cached as well.
+        service.schedule(COMPANIES);
+        assertEquals(3, profileCalls.size());
+
+        clock.now = clock.now.plus(Duration.ofDays(29));
+        service.schedule(COMPANIES);
+        assertEquals(3, profileCalls.size());
+        clock.now = clock.now.plus(Duration.ofDays(1));
+        service.schedule(COMPANIES);
+        assertEquals(6, profileCalls.size());
+    }
+
+    @Test
+    public void testRegisterIsScopedWinsCountryAndCanBeSwitchedOff()
+    {
+        registerEnabled = true;
+        var service = service(memory(), budget(100));
+        service.schedule(COMPANIES);
+        // A domicile prefix and a profile without country are looked up; a
+        // profile country equal to the ISIN prefix needs no register.
+        assertEquals(List.of(List.of(LARGE), List.of(MEDIUM)), registerCalls);
+        var large = service.snapshot().attributes().get(new Identifier(InstrumentEvidence.ISIN, LARGE));
+        assertEquals("HK", large.country().orElseThrow().value());
+        assertEquals(Source.REGISTER, large.country().orElseThrow().source());
+
+        service.schedule(COMPANIES);
+        assertEquals(2, registerCalls.size());
+
+        registerEnabled = false;
+        clock.now = clock.now.plus(Duration.ofDays(31));
+        service.schedule(COMPANIES);
+        assertEquals(2, registerCalls.size());
+        large = service.snapshot().attributes().get(new Identifier(InstrumentEvidence.ISIN, LARGE));
+        assertEquals(Source.PROVIDER, large.country().orElseThrow().source());
+    }
+
+    @Test
+    public void testCompaniesAreNotPendingWithoutProfileAccess()
+    {
+        profilesEnabled = false;
+        var service = service(memory(), budget(100));
+        service.schedule(COMPANIES);
+        assertTrue(profileCalls.isEmpty());
+        assertEquals(0, service.snapshot().pending());
+        assertTrue(service.snapshot().waiting().isEmpty());
+        assertEquals(CompanyEnrichmentService.State.NO_KEY, service.snapshot().progress().state());
+    }
+
+    @Test
+    public void testProviderFailureIsRecordedInTheSharedBudgetAndStopsThePass()
+    {
+        var budget = budget(100);
+        profileFailures.put(LARGE, new EnrichmentFailure(new CompositionResult(CompositionResult.Status.ENTITLEMENT_FAILED,
+                        Optional.empty(), Optional.empty())));
+        var service = service(memory(), budget);
+        service.schedule(COMPANIES);
+        assertEquals(List.of(LARGE), profileCalls);
+        assertTrue(budget.isSuspended(ACCOUNT));
+        // Denied access is no reason to wait: the companies are unknown.
+        assertEquals(0, service.snapshot().pending());
+        assertEquals(CompanyEnrichmentService.State.NO_ACCESS, service.snapshot().progress().state());
+        assertTrue(service.snapshot().progress().retryAt().isEmpty());
+
+        // A single failing company is skipped and not asked again within the hour.
+        var other = budget(100);
+        profileFailures.put(LARGE, new IOException());
+        profileCalls.clear();
+        var retry = service(memory(), other);
+        retry.schedule(COMPANIES);
+        retry.schedule(COMPANIES);
+        assertEquals(List.of(LARGE, MEDIUM, SMALL), profileCalls);
+        assertFalse(other.isSuspended(ACCOUNT));
+        assertEquals(CompanyEnrichmentService.State.COMPLETE, retry.snapshot().progress().state());
+
+        clock.now = clock.now.plus(Duration.ofHours(1));
+        retry.schedule(COMPANIES);
+        assertEquals(List.of(LARGE, MEDIUM, SMALL, LARGE), profileCalls);
+    }
+
+    @Test
+    public void testRestartWithStoredDataNeedsNoRequests() throws IOException
+    {
+        registerEnabled = true;
+        var path = temporary.newFolder().toPath().toRealPath();
+        var policy = new CompositionPersistencePolicy(ACCOUNT, Permission.PERMITTED, Optional.empty());
+        var cache = new CompanyEnrichmentCache(path, clock);
+        cache.configure(policy, Optional.empty());
+        service(cache, budget(100)).schedule(COMPANIES);
+        assertEquals(3, profileCalls.size());
+        assertEquals(2, registerCalls.size());
+
+        clock.now = clock.now.plus(Duration.ofDays(1));
+        var restarted = new CompanyEnrichmentCache(path, clock);
+        restarted.configure(policy, Optional.empty());
+        var service = service(restarted, budget(100));
+        service.schedule(COMPANIES);
+        assertEquals(3, profileCalls.size());
+        assertEquals(2, registerCalls.size());
+        assertEquals(0, service.snapshot().pending());
+        assertEquals("HK", service.snapshot().attributes().get(new Identifier(InstrumentEvidence.ISIN, LARGE))
+                        .country().orElseThrow().value());
+    }
+}

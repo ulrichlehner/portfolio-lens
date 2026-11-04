@@ -130,7 +130,7 @@ public final class LensRun
                 LOG.info("another run is active on this cache directory; nothing to do");
                 return Result.LOCKED;
             }
-            try (lock)
+            try (var held = lock)
             {
                 return runLocked();
             }

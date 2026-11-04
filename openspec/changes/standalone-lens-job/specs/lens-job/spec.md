@@ -21,6 +21,21 @@ Lens SHALL provide a `check` command that validates the configuration and PP acc
 - **WHEN** `check` runs without a configured PP token
 - **THEN** it reports the missing setting by name and exits with a nonzero status.
 
+#### Scenario: Check with key but without confirmation
+- **WHEN** `check` runs with a provider key configured and `LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED` not set to `true`
+- **THEN** it states that the key has no effect until `LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED=true` is set and exits with the configuration error status.
+
+### Requirement: Warning for an unconfirmed provider key
+While a provider key is configured and the local storage confirmation is not `true`, every `run`, including a skipped one, SHALL log a warning naming `LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED=true`, and the status file SHALL mark provider data as unconfirmed. A confirmation value other than `true` or `false` SHALL be a configuration error.
+
+#### Scenario: Unconfirmed key on a skipped run
+- **WHEN** a run with a key and without the confirmation finds its inputs unchanged
+- **THEN** it skips the calculation but still logs the warning and keeps the unconfirmed marker in the status file.
+
+#### Scenario: Misspelled confirmation value
+- **WHEN** the confirmation setting is `yes`
+- **THEN** the run stops with a configuration error naming the setting and its accepted values `true` and `false`.
+
 ### Requirement: Configuration sources
 Configuration SHALL come from environment variables and optionally from a properties file named on the command line; environment variables SHALL take precedence. Each secret SHALL also be readable from a file named by a separate setting. Secrets SHALL NOT be accepted as command-line arguments.
 

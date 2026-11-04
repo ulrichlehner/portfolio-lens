@@ -86,6 +86,16 @@ unknown `type` are excluded from the analysis and counted in a diagnostic, never
 The exact-equality rule may misclassify a real rate of exactly 1 at full precision; that is
 accepted because it fails towards "incomplete", never towards a false complete claim.
 
+PP converts with its own exchange rates (ECB series by default), so a USD holding arrives in EUR
+without any conversion in Lens. When PP has no rate for a pair, its converter falls back to a rate
+of 1 (`FALLBACK_EXCHANGE_RATE`). This also happens for a short time in a fresh PP workspace, before
+the first ECB download has completed: every foreign-currency holding then arrives with
+`valuation.value` equal to `localValuation.value`. Lens reports these holdings as missing
+conversion and withholds whole-portfolio percentages; the first run after PP has downloaded the
+rates produces a complete page again, because the changed valuations change the input fingerprint.
+
+**Status:** confirmed by the user on 2026-11-04.
+
 `Money` becomes a small Lens record `Amount(String currency, BigDecimal value)`; the engine already
 calculates in `BigDecimal`. Minor-unit rounding (for "rows whose total rounds to zero in the
 currency") uses `java.util.Currency.getDefaultFractionDigits()`. `HeldSecurities` is dropped: PP
@@ -141,8 +151,27 @@ nothing. The page itself is persisted derived data. Therefore:
 - GLEIF register data (CC0) is cached regardless.
 
 Alternative considered: session-only mode with a fetch on every run, rejected for quota and because
-the page would persist provider-derived results anyway. This decision changes the specs and needs
-the user's confirmation before apply starts.
+the page would persist provider-derived results anyway.
+
+**Status:** confirmed by the user on 2026-11-04, with the condition that a forgotten confirmation
+must not go unnoticed.
+
+**Safeguard against a forgotten confirmation.** When a provider key is configured and
+`LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED` is not exactly `true` (the "unconfirmed key" state):
+
+- `lens check` reports the state, names `LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED=true` as the
+  setting to add, and exits with the configuration error status.
+- `lens run` logs a warning with the same text on every run, including skipped runs, and records
+  the state in `status.json` (`providerData: "unconfirmed"`), so monitoring can alert on it.
+- The page shows a banner at the top, above the summary, that is not collapsible and names the
+  exact variable and value to set.
+- `docs/lens.env.example` and the README configuration table list the variable directly below the
+  key settings, with a comment that the key has no effect without it.
+- A value other than `true` or `false` (for example `yes` or `TRUE `) is a configuration error, so
+  a typo cannot silently mean "off".
+
+The behavior in that state is unchanged: no provider requests, cached provider data deleted,
+holdings-only page.
 
 ### D7. Run state file instead of in-memory coordination
 
@@ -208,7 +237,9 @@ no-npm constraint.
 - Sectors: Lens's own list of the 11 GICS sector names and codes and the fork's alias map.
 - Market classification (developed, emerging, frontier) is removed from the grouping selector in
   this step, because the PP template it came from cannot be copied and no source with a compatible
-  license has been chosen.
+  license has been chosen. A possible later addition is a grouping from a compatibly licensed
+  source, for example the World Bank income groups (CC BY 4.0, with attribution).
+  **Status:** confirmed by the user on 2026-11-04, together with the seven-region table.
 - Texts: the English strings the user wrote for the fork are ported into one Lens `Texts` class.
 
 ### D11. Local development against a PP on macOS
@@ -262,13 +293,24 @@ loopback. A container cannot reach the host's 127.0.0.1 directly, and a request 
 - [State file loss resets the budget] → the provider still answers rate limits with backoff, and
   stored retrieval dates keep the 24-hour cadence for cached compositions.
 - [Market classification is missing] → stated in the README; can come back with a licensable
-  source.
+  source such as the World Bank income groups.
+- [A provider key is configured but the confirmation is forgotten] → the safeguard in D6: failing
+  `lens check`, a warning on every run, `status.json` state and a top banner on the page.
+- [Fresh PP workspace before the first ECB download] → foreign-currency holdings show as missing
+  conversion until PP has rates; the page says so and recovers on the next run.
 
 ## Migration Plan
 
 No users yet. The fork stays untouched. After this change, the user stops using the fork's
 Breakdown, enables PP's REST API, creates a token for Lens in PP and runs `lens run` from a
 scheduler. Rollback is to keep using the fork.
+
+## Decisions confirmed by the user (2026-11-04)
+
+- D6: provider data only with `LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED=true`, with the safeguard
+  against a forgotten confirmation.
+- D10: Market classification removed in this step; Lens's own seven-region table.
+- D3: PP's silent 1:1 conversion counts as missing conversion.
 
 ## Open Questions
 

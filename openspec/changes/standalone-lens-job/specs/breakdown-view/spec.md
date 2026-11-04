@@ -83,7 +83,7 @@ The page SHALL show one banner for the most relevant state: no API key configure
 
 #### Scenario: Local storage not confirmed
 - **WHEN** an API key is configured and the local storage confirmation is off
-- **THEN** a banner states that provider data is used only after confirming that the provider plan allows local storage, and names the confirmation setting.
+- **THEN** a banner at the top of the page, above the summary and not collapsible, states that the API key has no effect and that provider data is used only after confirming that the provider plan allows local storage, and names `LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED=true` as the exact setting to add.
 
 #### Scenario: Authentication failure
 - **WHEN** the provider rejected the configured key in an earlier run

@@ -18,7 +18,7 @@ Lens SHALL offer one setting with which the user confirms that their provider pl
 
 #### Scenario: Confirmation off
 - **WHEN** a key is configured and the confirmation setting is off
-- **THEN** no provider request is made, and the page states that provider data is used only after local storage is confirmed and names the setting.
+- **THEN** no provider request is made, cached provider data is deleted, the page shows only the holdings with a banner naming `LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED=true`, `check` fails and every run logs a warning (see `lens-job`, "Warning for an unconfirmed provider key").
 
 #### Scenario: Confirmation on
 - **WHEN** a key is configured and the confirmation setting is on

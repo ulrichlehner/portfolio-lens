@@ -31,7 +31,8 @@ that API, so the analysis keeps working without the fork and without changes to 
 - **BREAKING** (against the fork's specs): no live view, refresh button, progress line, preferences
   page or session-only mode. Provider data is fetched and the page shows provider-derived exposure
   only when the user confirms in the configuration that their plan allows local storage; without
-  that confirmation the page shows the holdings and a notice, and no provider request is made.
+  that confirmation the page shows the holdings and a prominent banner, `lens check` fails and
+  every run logs a warning, and no provider request is made.
 - Dev tooling: `pom.xml`, `scripts/dev.sh run` (CLI in the dev image against a PP on the host via a
   loopback forwarder inside the container), `.vscode/launch.json` for running and debugging in the
   dev container.
@@ -83,3 +84,11 @@ in-app wording. The overlap chart is covered by `breakdown-view`.
 - Docker image publishing, GitHub repository creation, releases.
 - A web server, live updates, a refresh button, writing to the portfolio, other providers.
 - Translations: the page is English only in this step.
+
+## Follow-ups
+
+- Infra step 2 (sidecar next to PP in the server container) must set
+  `LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED=true` together with the provider key, or Lens makes no
+  provider requests. A `lens check` at container start-up catches a missing value.
+- Market classification can return from a compatibly licensed source, for example the World Bank
+  income groups (CC BY 4.0).

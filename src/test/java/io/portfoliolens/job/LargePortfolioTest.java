@@ -73,6 +73,17 @@ public class LargePortfolioTest
         // a few MB at most for about 4,000 companies (finding of the first real run: 21.8 MB)
         assertTrue(bytes < 3_000_000, "page size " + bytes);
         assertTrue(elements < 30_000, "elements " + elements);
+        // the merged tile can be explored: its members are in the embedded data and match its label
+        var start = page.indexOf("<script type=\"application/json\" id=\"lens-data\">");
+        var data = com.google.gson.JsonParser.parseString(page.substring(page.indexOf('>', start) + 1,
+                        page.indexOf("</script>", start)).replace("\\u003c", "<").replace("\\u003e", ">")
+                        .replace("\\u0026", "&")).getAsJsonObject();
+        var allMembers = data.getAsJsonObject("m").getAsJsonObject("COMPANY").getAsJsonArray("all").size();
+        assertTrue(allMembers > 1000, "merged members " + allMembers);
+        var label = String.format(java.util.Locale.ENGLISH, "%,d companies, ", allMembers);
+        assertTrue(page.contains("data-zoom=\"all\" aria-label=\"" + label), "label with " + label);
+        assertTrue(page.contains("Click to explore"));
+        assertTrue(data.getAsJsonObject("m").getAsJsonObject("SECTOR").size() > 0, "group tails can be explored");
         // the default budget covers the first fill of 4,000 companies in one day
         var status = com.google.gson.JsonParser.parseString(Files.readString(temp.resolve("out/status.json")))
                         .getAsJsonObject();

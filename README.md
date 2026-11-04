@@ -151,7 +151,9 @@ Overlapping runs are safe: a run that finds another one active exits without cha
   serve it only behind authentication.
 
 The page holds every company once, in its embedded data, and renders the 200 largest rows; further
-rows, the companies of a group and small treemap companies are built on demand. For 4,000 companies
+rows, the companies of a group and small treemap companies are built on demand. In the treemap,
+companies too small for their own tile share one tile whose area is their total value; it shows
+their number and share, and clicking it (or Enter) explores them, Escape goes back. For 4,000 companies
 it is about 1.4 MB, about 0.2 MB compressed. Serve it compressed, for example with Caddy:
 
 ```

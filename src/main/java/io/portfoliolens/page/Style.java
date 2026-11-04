@@ -56,6 +56,11 @@ final class Style
                     .tm-bg,.tm-group{fill:var(--tm-bg)}.tm-group{stroke:var(--bg);stroke-width:1.5}
                     .tm-tile{stroke:var(--bg);stroke-width:1;vector-effect:non-scaling-stroke}
 .tm-tile.tm-other{fill:var(--tm-other)}
+.tm-merged{cursor:zoom-in}.tm-merged:focus{outline:none}.tm-merged:focus rect.tm-other,.tm-merged:hover rect.tm-other{stroke:var(--fg);stroke-width:2}
+.tm-mosaic rect{stroke:none}.tm-merged-frame{fill:none;stroke:var(--bg);stroke-width:2.5;vector-effect:non-scaling-stroke}
+.tm-merged:hover .tm-merged-frame,.tm-merged:focus .tm-merged-frame{stroke:var(--fg)}.tm-merged-label{font-weight:600}
+.crumbs{font-size:12px;margin:0 0 4px}.crumb{font:inherit;background:none;border:0;padding:0;color:var(--c-indirect);text-decoration:underline;cursor:pointer}
+.crumb-current{font-weight:600}.crumb-hint{color:var(--muted)}
                     a:hover .tm-tile,a:focus .tm-tile,.tm-tile.selected,.tm-group.selected{stroke:var(--fg);stroke-width:2}
                     .tm-label,.tm-share,.tm-group-label{font-size:11px;fill:var(--tm-label);pointer-events:none;paint-order:stroke;stroke:rgba(0,0,0,.25);stroke-width:2px}
                     .tm-group-label{font-weight:600}.tm-share{opacity:.85}

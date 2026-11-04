@@ -66,7 +66,10 @@ public final class TreemapLayout
         var result = new ArrayList<Tile<T>>();
         if (sorted.isEmpty() || area.area() <= 0)
             return result;
-        var total = sorted.stream().mapToDouble(weight).sum();
+        // a plain sum, so that the layout in the page script gives the same result
+        double total = 0;
+        for (var item : sorted)
+            total += weight.applyAsDouble(item);
         var scale = area.area() / total;
 
         var remaining = area;

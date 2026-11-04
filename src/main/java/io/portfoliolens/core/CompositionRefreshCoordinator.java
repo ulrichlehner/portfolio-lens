@@ -458,8 +458,9 @@ public final class CompositionRefreshCoordinator implements AutoCloseable
                         }
                         if (!budget.canExecuteReserved(account))
                         {
+                            // a backoff began after the permit was granted
                             budget.release(account, enrichmentCost);
-                            task.complete(initial);
+                            task.complete(initial.withLookupStatus(InstrumentResolution.LookupStatus.BACKOFF));
                             return;
                         }
                     }

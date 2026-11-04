@@ -121,5 +121,19 @@ public class PageSmokeTest
         assertTrue(page.contains("<details id=\"data-status\">"));
         assertTrue(page.contains("@media (prefers-color-scheme:dark)"));
         assertFalse(page.contains("Market classification"));
+
+        // the inline script parses (Node.js runs in the dev image)
+        var script = page.substring(page.lastIndexOf("<script>") + "<script>".length(), page.lastIndexOf("</script>"));
+        var file = java.nio.file.Files.writeString(temp.resolve("page.js"), script);
+        try
+        {
+            var check = new ProcessBuilder("node", "--check", file.toString()).redirectErrorStream(true).start();
+            var output = new String(check.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            assertEquals(0, check.waitFor(), output);
+        }
+        catch (java.io.IOException e)
+        {
+            org.junit.jupiter.api.Assumptions.abort("Node.js not available: " + e.getMessage());
+        }
     }
 }

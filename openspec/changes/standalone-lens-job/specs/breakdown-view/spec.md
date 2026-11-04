@@ -69,6 +69,28 @@ Each treemap tile SHALL be coloured by the share of the company held directly, o
 - **WHEN** the treemap merges the smaller companies of a group into one tile
 - **THEN** that tile is grey, not a colour of the scale.
 
+### Requirement: Explorable merged tile
+The merged tile SHALL state the number of its companies, their total share and the size limit, SHALL be reachable by keyboard, and SHALL show its companies as small unlabelled cells coloured on the direct-to-fund scale. Activating it SHALL show its companies as a treemap of their own over the whole chart, merging again below the minimum area; a group's merged tile SHALL show the companies of that group only.
+
+#### Scenario: Label of the merged tile
+- **WHEN** 3,882 synthetic companies with together 33.1 % of the value are merged, each below 0.05 %
+- **THEN** the tile, its tooltip and its accessible name read "3,882 companies, 33.1%, each below 0.05%" and hint that it can be explored.
+
+#### Scenario: Exploring with the keyboard
+- **WHEN** the user moves the focus to the merged tile and presses Enter
+- **THEN** its companies fill the chart, a nested merged tile holds the companies still too small, and selecting a company there selects its table row.
+
+### Requirement: Treemap level navigation
+While a merged tile is explored, a breadcrumb above the treemap SHALL name the levels and lead back to each of them, Escape SHALL return one level, and the page address SHALL keep the level next to the grouping so that a reload shows the same level.
+
+#### Scenario: Back to the overview
+- **WHEN** the user explores two levels deep and presses Escape twice
+- **THEN** the treemap shows the overview again and the breadcrumb is hidden.
+
+#### Scenario: Reload of an explored level
+- **WHEN** the user reloads the page while exploring the smaller companies of a sector
+- **THEN** the page shows the same grouping and level, and the breadcrumb names the sector.
+
 ### Requirement: Generation time and staleness
 The page SHALL show when it was generated and the valuation date of the holdings. When opened more than one hour after generation, it SHALL show a notice that the page is older than expected and that the job may not be running.
 
@@ -93,11 +115,11 @@ The page SHALL NOT contain the PP token, the provider key, the PP file path, the
 ## MODIFIED Requirements
 
 ### Requirement: Treemap tiles and bar values
-The treemap SHALL show every company whose tile reaches a minimum area as its own tile, SHALL merge the smaller companies of each group into one tile placed after the others that names their number, SHALL separate adjacent tiles visibly, SHALL leave no area unpainted, and its legend SHALL be a labelled scale from directly held to held through funds. Each bar SHALL show its total amount and share next to it.
+Tile areas SHALL stay exactly proportional to value. The treemap SHALL show every company whose tile reaches a minimum area as its own tile, SHALL merge the smaller companies of each group into one tile placed after the others, SHALL separate adjacent tiles visibly, SHALL leave no area unpainted, and its legend SHALL be a scale from directly held to held through funds. Each bar SHALL show its total amount and share.
 
 #### Scenario: Many small companies
 - **WHEN** the result contains hundreds of companies with tiny exposure
-- **THEN** the larger companies keep their own tiles in size order, the companies below the minimum tile area form one tile per group placed last whose label and tooltip give their number and amount, adjacent tiles of the same color are separated by a thin line, and the chart area contains no blank region.
+- **THEN** the larger companies keep their own tiles in size order, the companies below the minimum tile area form one tile per group placed last with the area of their total value, adjacent tiles of the same color are separated by a thin line, and the chart area contains no blank region.
 
 #### Scenario: Bar values
 - **WHEN** the bar chart shows the largest companies

@@ -294,6 +294,10 @@ public final class PageWriter
         for (var line : noticeLines(model))
             if (!companyNotices.contains(line))
                 add("<p class=\"view-notice\">", e(line), "</p>");
+        int gi = 0;
+        for (var row : model.rows())
+            if (row instanceof GroupRow group)
+                groupIndex.put(group.key(), gi++);
         var chart = model.chart();
         if (chart.isEmpty())
             add("<p class=\"empty\">", e(Texts.LookThroughChartEmpty), "</p>");
@@ -389,13 +393,49 @@ public final class PageWriter
     }
 
     /** The members of a tile area, with the small ones merged into one "Other" entry. */
-    private record Merged(List<ChartCompany> shown, int otherCount, double otherWeight, double otherDirect)
+    record Merged(List<ChartCompany> shown, List<ChartCompany> others, int otherCount, double otherWeight,
+                    double otherDirect, double threshold)
     {
     }
 
-    private static Merged merge(List<ChartCompany> members, double scale)
+    /**
+     * The text of a merged tile: count, total share and the size limit of its companies, for
+     * example "3,882 companies, 33.1%, each below 0.05%". All values are in hundredths of the
+     * reporting currency; without a denominator only the count is given. The page script builds
+     * the same text for zoomed levels (see {@link Script#LAYOUT}).
+     */
+    static String mergedLabel(int count, double weight, double threshold, Optional<Long> denominator)
+    {
+        var companies = String.format(Locale.ENGLISH, "%,d", count) + (count == 1 ? " company" : " companies");
+        if (denominator.isEmpty() || denominator.get() <= 0)
+            return companies;
+        var share = weight / denominator.get() * 100;
+        return companies + ", " + String.format(Locale.ROOT, "%.1f", share) + "%, each below "
+                        + upperPercent(threshold / denominator.get() * 100) + "%";
+    }
+
+    /** A percentage rounded up to two significant digits, so "below" stays true. */
+    static String upperPercent(double percent)
+    {
+        if (!(percent > 0))
+            return "0";
+        var exponent = (int) Math.floor(Math.log10(percent));
+        var step = Math.pow(10, exponent - 1);
+        var up = Math.ceil(percent / step - 1e-9) * step;
+        var decimals = Math.max(0, 1 - exponent);
+        var text = String.format(Locale.ROOT, "%." + decimals + "f", up);
+        return text.contains(".") ? text.replaceAll("\\.?0+$", "") : text;
+    }
+
+    /** Merged members per grouping and group (-1 for the company view), for the page script. */
+    private final Map<String, Map<String, List<Integer>>> mergedMembers = new java.util.LinkedHashMap<>();
+    /** Group index in the table and the embedded data, by group row key. */
+    private final Map<RowKey, Integer> groupIndex = new java.util.HashMap<>();
+
+    static Merged merge(List<ChartCompany> members, double scale)
     {
         var shown = new ArrayList<ChartCompany>();
+        var others = new ArrayList<ChartCompany>();
         int count = 0;
         double weight = 0;
         double direct = 0;
@@ -406,26 +446,38 @@ public final class PageWriter
                 shown.add(member);
             else if (value > 0)
             {
+                others.add(member);
                 count++;
                 weight += value;
                 direct += value * member.directFraction();
             }
         }
-        return new Merged(shown, count, weight, direct);
+        return new Merged(shown, others, count, weight, direct, scale > 0 ? MIN_TILE_AREA / scale : 0);
     }
 
     /** A tile of the treemap: a company, or the merged small companies of an area. */
-    private record TileItem(ChartCompany company, int otherCount, double weight, double directFraction)
+    private record TileItem(ChartCompany company, Merged merged, String zoom, double weight, double directFraction)
     {
     }
 
-    private static List<TileItem> items(Merged merged)
+    /** {@code zoom} names the merged tile for the page script: the group index, or "all". */
+    private List<TileItem> items(Grouping grouping, String zoom, Merged merged)
     {
         var items = new ArrayList<TileItem>();
-        merged.shown().forEach(c -> items.add(new TileItem(c, 0, c.total().doubleValue(), c.directFraction())));
+        merged.shown().forEach(c -> items.add(new TileItem(c, null, zoom, c.total().doubleValue(), c.directFraction())));
         if (merged.otherCount() > 0)
-            items.add(new TileItem(null, merged.otherCount(), merged.otherWeight(),
+        {
+            items.add(new TileItem(null, merged, zoom, merged.otherWeight(),
                             merged.otherWeight() > 0 ? merged.otherDirect() / merged.otherWeight() : 0));
+            var indexes = new ArrayList<Integer>();
+            for (var other : merged.others())
+            {
+                var index = companyIndex.get(identity(other.key()));
+                if (index != null)
+                    indexes.add(index);
+            }
+            mergedMembers.computeIfAbsent(grouping.name(), ignored -> new java.util.LinkedHashMap<>()).put(zoom, indexes);
+        }
         return items;
     }
 
@@ -433,8 +485,9 @@ public final class PageWriter
     {
         var currency = input.result().valuation().valuedSubset().getCurrencyCode();
         var area = new Rect(0, 0, CHART_WIDTH, TREEMAP_HEIGHT);
-        add("<svg class=\"treemap\" viewBox=\"0 0 ", String.valueOf(CHART_WIDTH), " ", String.valueOf(TREEMAP_HEIGHT),
-                        "\" role=\"img\" aria-label=\"", e(Texts.LookThroughChartTreemap), "\">",
+        add("<nav class=\"crumbs\" aria-label=\"Treemap level\" hidden></nav>");
+        add("<svg class=\"treemap\" data-grouping=\"", grouping.name(), "\" viewBox=\"0 0 ", String.valueOf(CHART_WIDTH), " ",
+                        String.valueOf(TREEMAP_HEIGHT), "\" role=\"group\" aria-label=\"", e(Texts.LookThroughChartTreemap), "\">",
                         "<rect class=\"tm-bg\" x=\"0\" y=\"0\" width=\"", String.valueOf(CHART_WIDTH), "\" height=\"",
                         String.valueOf(TREEMAP_HEIGHT), "\"/>");
         if (chart.isGrouped())
@@ -442,7 +495,9 @@ public final class PageWriter
             var total = chart.groups().stream().mapToDouble(g -> g.group().total().doubleValue()).sum();
             var scale = total > 0 ? area.area() / total : 0;
             var layout = TreemapLayout.grouped(chart.groups(), g -> g.group().total().doubleValue(),
-                            g -> items(merge(g.companies(), scale)), TileItem::weight, item -> item.company() == null, area);
+                            g -> items(grouping, String.valueOf(groupIndex.getOrDefault(g.group().key(), -1)),
+                                            merge(g.companies(), scale)),
+                            TileItem::weight, item -> item.company() == null, area);
             for (var group : layout)
             {
                 var r = group.rect();
@@ -462,8 +517,8 @@ public final class PageWriter
         {
             var total = chart.companies().stream().mapToDouble(c -> c.total().doubleValue()).sum();
             var scale = total > 0 ? area.area() / total : 0;
-            for (var tile : TreemapLayout.squarify(items(merge(chart.companies(), scale)), TileItem::weight,
-                            item -> item.company() == null, area))
+            for (var tile : TreemapLayout.squarify(items(grouping, "all", merge(chart.companies(), scale)),
+                            TileItem::weight, item -> item.company() == null, area))
                 tile(grouping, tile.item(), tile.rect(), currency);
         }
         add("</svg>");
@@ -473,14 +528,20 @@ public final class PageWriter
     {
         if (item.company() == null)
         {
-            var text = item.otherCount() + " smaller companies";
-            add("<g><rect class=\"tm-tile tm-other\" x=\"",
-                            num(r.x()), "\" y=\"", num(r.y()), "\" width=\"", num(r.width()), "\" height=\"",
-                            num(r.height()), "\"><title>", e(text + "\n" + LookThroughViewPresenter.formatAmount(
-                                            BigDecimal.valueOf(item.weight()), currency)),
-                            "</title></rect>");
+            var merged = item.merged();
+            var text = mergedLabel(merged.otherCount(), merged.otherWeight(), merged.threshold(),
+                            input.result().valuation().denominator().map(m -> m.getAmount()));
+            add("<g class=\"tm-merged\" role=\"button\" tabindex=\"0\" data-zoom=\"", e(item.zoom()),
+                            "\" aria-label=\"", e(text + ". Press Enter to explore."), "\"><title>",
+                            e(text + "\nClick to explore"), "</title><rect class=\"tm-tile tm-other\" x=\"", num(r.x()),
+                            "\" y=\"", num(r.y()), "\" width=\"", num(r.width()), "\" height=\"", num(r.height()),
+                            "\"/>");
             if (r.width() >= 48 && r.height() >= 20)
-                label(r.x() + 4, r.y() + 14, r.width() - 8, text, "tm-label");
+            {
+                label(r.x() + 4, r.y() + 14, r.width() - 8, text, "tm-label tm-merged-label");
+                if (r.height() >= 34)
+                    label(r.x() + 4, r.y() + 28, r.width() - 8, "Click to explore \u203A", "tm-share tm-merged-label");
+            }
             add("</g>");
             return;
         }
@@ -836,6 +897,22 @@ public final class PageWriter
             groups.add(entry.getKey().name(), list);
         }
         json.add("g", groups);
+
+        // members of merged treemap tiles, by grouping and group ("all" in the company view)
+        var merged = new JsonObject();
+        mergedMembers.forEach((grouping, byZoom) -> {
+            var object = new JsonObject();
+            byZoom.forEach((zoom, indexes) -> {
+                var list = new JsonArray();
+                indexes.forEach(list::add);
+                object.add(zoom, list);
+            });
+            merged.add(grouping, object);
+        });
+        json.add("m", merged);
+        json.addProperty("minTileArea", MIN_TILE_AREA);
+        json.addProperty("chartWidth", CHART_WIDTH);
+        json.addProperty("chartHeight", TREEMAP_HEIGHT);
 
         var strings = new JsonArray();
         stringIndex.keySet().forEach(strings::add);

@@ -599,6 +599,14 @@ public final class PageWriter
                         : Optional.<String>empty();
         var line = LookThroughDataStatus.summaryLine(status, companyData, company.assumedCompanies());
         add("<p class=\"status-line\" title=\"", e(line.tooltip()), "\">", e(line.text()), "</p>");
+        input.budget().ifPresent(usage -> add("<p class=\"", usage.exhausted() ? "status-warning" : "status-line",
+                        "\" id=\"budget\">", usage.exhausted() ? "&#9888; " : "",
+                        e("Provider requests: " + usage.used() + " of " + usage.capacity()
+                                        + " units used in the last 24 hours"
+                                        + (usage.exhausted() ? "; remaining lookups wait"
+                                                        + usage.oldestExpiresAt().map(at -> " until " + time(at)).orElse("")
+                                                        : "")),
+                        "</p>"));
         if (input.provider() == ProviderState.ENABLED)
             line.warningText().ifPresent(text -> add("<p class=\"status-warning\" title=\"",
                             e(line.warningTooltip().orElse("")), "\">&#9888; ", e(text), "</p>"));

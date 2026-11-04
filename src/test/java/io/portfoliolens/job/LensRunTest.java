@@ -273,6 +273,12 @@ public class LensRunTest
         assertEquals(LensRun.Result.WRITTEN, run(env).run());
         assertTrue(http.requests().isEmpty());
         assertTrue(Integer.parseInt(status().get("pendingLookups").orElseThrow()) > 0);
+        var json = com.google.gson.JsonParser.parseString(Files.readString(temp.resolve("out/status.json")))
+                        .getAsJsonObject().getAsJsonObject("budget");
+        assertTrue(json.get("exhausted").getAsBoolean());
+        assertEquals(0, json.get("capacityUnits").getAsLong());
+        assertTrue(page().contains("id=\"budget\""));
+        assertTrue(page().contains("units used in the last 24 hours; remaining lookups wait"));
         // pending work is due again on the next run, which still cannot request anything
         now = now.plus(Duration.ofMinutes(5));
         assertEquals(LensRun.Result.WRITTEN, run(env).run());

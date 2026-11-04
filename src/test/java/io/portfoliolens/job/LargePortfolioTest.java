@@ -50,7 +50,6 @@ public class LargePortfolioTest
             env.put(LensConfig.PP_TOKEN, TOKEN);
             env.put(LensConfig.EULERPOOL_API_KEY, "synthetic-key");
             env.put(LensConfig.LOCAL_STORAGE_CONFIRMED, "true");
-            env.put(LensConfig.REQUEST_BUDGET, "1000000");
             env.put(LensConfig.RUN_TIMEOUT, "PT5M");
             env.put(LensConfig.CACHE_DIR, temp.resolve("cache").toString());
             env.put(LensConfig.OUTPUT_DIR, temp.resolve("out").toString());
@@ -71,5 +70,11 @@ public class LargePortfolioTest
             Files.writeString(Path.of(demo).resolve("large.html"), page);
         }
         assertTrue(page.contains("Invented Company 1 Inc."));
+        // the default budget covers the first fill of 4,000 companies in one day
+        var status = com.google.gson.JsonParser.parseString(Files.readString(temp.resolve("out/status.json")))
+                        .getAsJsonObject();
+        System.out.println("LARGE PORTFOLIO STATUS " + status);
+        assertTrue(status.get("pendingLookups").getAsInt() == 0, status.toString());
+        assertTrue(status.getAsJsonObject("budget").get("usedUnits").getAsLong() < 20000, status.toString());
     }
 }

@@ -79,6 +79,25 @@ public final class CompositionRequestBudget
         this.capacity = capacity;
     }
 
+    /**
+     * Units used in the current window, the capacity, and when the oldest charge leaves the
+     * window (empty when nothing is charged).
+     */
+    public record Usage(long used, long capacity, Duration window, Optional<Instant> oldestExpiresAt)
+    {
+        public boolean exhausted()
+        {
+            return used >= capacity;
+        }
+    }
+
+    public synchronized Usage usage()
+    {
+        now();
+        return new Usage(used, capacity, window,
+                        charges.isEmpty() ? Optional.empty() : Optional.of(charges.getFirst().at().plus(window)));
+    }
+
     /** The current admission state; expired charges are dropped first. */
     public synchronized Snapshot snapshot()
     {

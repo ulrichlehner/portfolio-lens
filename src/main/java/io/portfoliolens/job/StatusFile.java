@@ -78,6 +78,17 @@ public final class StatusFile
         json.remove("error");
     }
 
+    public void budget(io.portfoliolens.core.CompositionRequestBudget.Usage usage)
+    {
+        var budget = new JsonObject();
+        budget.addProperty("usedUnits", usage.used());
+        budget.addProperty("capacityUnits", usage.capacity());
+        budget.addProperty("window", usage.window().toString());
+        budget.addProperty("exhausted", usage.exhausted());
+        usage.oldestExpiresAt().ifPresent(at -> budget.addProperty("nextUnitsFreeAt", at.toString()));
+        json.add("budget", budget);
+    }
+
     public void failed(Instant at, String message, ProviderState provider)
     {
         common(at, provider);

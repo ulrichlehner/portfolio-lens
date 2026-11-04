@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import io.portfoliolens.core.CompanyEnrichmentService;
+import io.portfoliolens.core.CompositionRequestBudget;
 import io.portfoliolens.core.FundOverlap;
 import io.portfoliolens.core.LookThroughResult;
 import io.portfoliolens.core.Money;
@@ -18,7 +19,8 @@ import io.portfoliolens.core.Money;
 public record PageInput(Instant generatedAt, ZoneId zone, String fileLabel, LookThroughResult result,
                 CompanyEnrichmentService.Snapshot attributes, LookThroughDataStatus.Model dataStatus,
                 Optional<LookThroughBanner.Kind> banner, ProviderState provider, FundOverlap overlap, Money accountCash,
-                List<String> unsupportedHoldingTypes, int pendingLookups, Optional<Instant> nextAttempt, String version)
+                List<String> unsupportedHoldingTypes, int pendingLookups, Optional<Instant> nextAttempt, String version,
+                Optional<CompositionRequestBudget.Usage> budget)
 {
     /** Whether provider data is used, and if not, why. */
     public enum ProviderState
@@ -46,5 +48,6 @@ public record PageInput(Instant generatedAt, ZoneId zone, String fileLabel, Look
         unsupportedHoldingTypes = List.copyOf(unsupportedHoldingTypes);
         Objects.requireNonNull(nextAttempt);
         Objects.requireNonNull(version);
+        Objects.requireNonNull(budget);
     }
 }

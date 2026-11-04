@@ -287,7 +287,8 @@ public final class LensRun
 
             var input = new PageInput(clock.instant(), clock.getZone(), model.file().label(), result, attributes,
                             dataStatus, banner, providerState(), FundOverlap.of(result), scope.accountCash(),
-                            scope.unsupportedHoldingTypes(), pendingLookups, nextAttempt, Version.get());
+                            scope.unsupportedHoldingTypes(), pendingLookups, nextAttempt, Version.get(),
+                            settings.providerEnabled() ? Optional.of(session.budget().usage()) : Optional.empty());
             try
             {
                 PageWriter.write(settings.outputDir().orElseThrow(), input);
@@ -314,9 +315,17 @@ public final class LensRun
                 LOG.warning("the run state could not be saved; the next run starts with an empty state");
             }
             status.written(started, clock.instant(), providerState(), pendingLookups, nextAttempt);
+            if (settings.providerEnabled())
+                status.budget(session.budget().usage());
             writeStatus(status);
+            var usage = session.budget().usage();
             LOG.info("wrote " + PageWriter.PAGE + ": " + funds.size() + " instruments looked at, "
-                            + providerHttp.count() + " provider and register requests, " + pendingLookups + " lookups pending");
+                            + providerHttp.count() + " provider and register requests, " + pendingLookups
+                            + " lookups pending, budget " + usage.used() + " of " + usage.capacity() + " units used");
+            if (settings.providerEnabled() && usage.exhausted())
+                LOG.warning("the provider request budget (" + LensConfig.REQUEST_BUDGET
+                                + ") is used up; remaining lookups wait until units free up"
+                                + usage.oldestExpiresAt().map(at -> " at " + at).orElse(""));
             if (settings.unconfirmedKey())
                 LOG.warning(unconfirmedWarning());
             return Result.WRITTEN;
@@ -398,11 +407,16 @@ public final class LensRun
                                         .map(f -> f.id() + f.alias().map(a -> " (alias " + a + ")").orElse("")).toList());
     }
 
-    /** Held instruments with a value and an ISIN, once per ISIN, as source rows for the provider. */
+    /** Held instruments with a value and an ISIN, once per ISIN and largest first, as provider source rows. */
     private static List<CompositionInstrument> funds(RestValuationAdapter.Scope scope)
     {
         var byIsin = new LinkedHashMap<String, CompositionInstrument>();
-        for (var position : scope.valuation().positions())
+        // largest holdings first, so a first fill spread over runs covers the most value early
+        var positions = scope.valuation().positions().stream()
+                        .sorted(Comparator.comparingLong((io.portfoliolens.core.SecuritiesValuation.Position p) -> p
+                                        .value().getAmount()).reversed())
+                        .toList();
+        for (var position : positions)
         {
             var instrument = position.security().asCompositionInstrument();
             var isin = instrument.identifiers().get(RestValuationAdapter.ISIN);

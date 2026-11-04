@@ -38,7 +38,19 @@ public record InstrumentResolution(CompositionInstrument source, State state, Re
 
     public enum LookupStatus
     {
-        NOT_NEEDED, NO_IDENTIFIERS, BUDGET_EXHAUSTED, ATTEMPTED, FAILED
+        NOT_NEEDED, NO_IDENTIFIERS, BUDGET_EXHAUSTED, ATTEMPTED, FAILED,
+        /** The provider asked to pause, or recent failures put lookups on hold. */
+        BACKOFF,
+        /** The lookup cap of one refresh or the run time limit was reached. */
+        LOOKUP_LIMIT,
+        /** No stored answer exists yet; a later run looks it up. */
+        NOT_RETRIEVED
+    }
+
+    /** The same resolution with another lookup status, to name why no lookup was made. */
+    public InstrumentResolution withLookupStatus(LookupStatus status)
+    {
+        return new InstrumentResolution(source, state, reason, instrument, classification, company, evidence, status);
     }
 
     public InstrumentResolution

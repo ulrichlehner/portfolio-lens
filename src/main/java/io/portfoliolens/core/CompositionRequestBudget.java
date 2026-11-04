@@ -53,7 +53,12 @@ public final class CompositionRequestBudget
         private long configuration;
         private boolean suspended;
         private Instant retryAt = Instant.MIN;
+        /** Failures in a row; a single failure concerns one instrument, not the account. */
+        private int consecutiveFailures;
     }
+
+    /** Failures in a row after which the whole account backs off. */
+    public static final int FAILURES_BEFORE_BACKOFF = 3;
 
     private final String providerId;
     private final Clock clock;
@@ -219,6 +224,18 @@ public final class CompositionRequestBudget
         return !state.suspended && !current.isBefore(providerRetryAt) && !current.isBefore(state.retryAt);
     }
 
+    /** Why a permit for the given units would be refused now; empty when it would be granted. */
+    public synchronized Optional<InstrumentResolution.LookupStatus> refusal(ProviderAccount account, long units)
+    {
+        var state = account(account);
+        var current = now();
+        if (state.suspended || current.isBefore(providerRetryAt) || current.isBefore(state.retryAt))
+            return Optional.of(InstrumentResolution.LookupStatus.BACKOFF);
+        if (units > capacity - used)
+            return Optional.of(InstrumentResolution.LookupStatus.BUDGET_EXHAUSTED);
+        return Optional.empty();
+    }
+
     /** Empty when no finite deadline exists (suspended or cost exceeds capacity). */
     public synchronized Optional<Instant> nextAvailable(ProviderAccount account, long units)
     {
@@ -260,10 +277,20 @@ public final class CompositionRequestBudget
                 if (deadline.isAfter(providerRetryAt))
                     providerRetryAt = deadline;
             }
-            case RECEIVED, CANCELLED, UNAVAILABLE, UNSUPPORTED -> {
+            case RECEIVED, UNAVAILABLE, UNSUPPORTED -> {
                 // Success cannot clear an overlapping failure or suspension.
+                state.consecutiveFailures = 0;
             }
-            default -> state.retryAt = current.plus(failureBackoff);
+            case CANCELLED -> {
+                // not an answer of the provider
+            }
+            default -> {
+                // One failing instrument must not stop the lookups of all others; repeated
+                // failures in a row point to the provider and pause the account.
+                state.consecutiveFailures++;
+                if (state.consecutiveFailures >= FAILURES_BEFORE_BACKOFF)
+                    state.retryAt = current.plus(failureBackoff);
+            }
         }
     }
 

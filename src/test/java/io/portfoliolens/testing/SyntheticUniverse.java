@@ -36,6 +36,7 @@ public final class SyntheticUniverse implements HttpGet
     private final HttpGet loopback = new JdkHttpGet("PortfolioLens/test");
     private final AtomicInteger providerRequests = new AtomicInteger();
     private volatile int failEvery;
+    private volatile String alwaysFailing = "";
     private final Map<String, AtomicInteger> requestsByPath = new LinkedHashMap<>();
 
     /**
@@ -78,9 +79,33 @@ public final class SyntheticUniverse implements HttpGet
         return index % 5 == 1 ? name.toUpperCase(Locale.ROOT) : name;
     }
 
+    /** Every 15th company is unknown to the provider: no profile, not found by search. */
+    public static boolean unknownToProvider(int index)
+    {
+        return index % 15 == 14;
+    }
+
+    /** Every third company reports revenue by region; the others have none. */
+    public static boolean hasRevenue(int index)
+    {
+        return index % 3 == 0;
+    }
+
+    public synchronized void resetCounts()
+    {
+        requestsByPath.clear();
+        providerRequests.set(0);
+    }
+
     public List<Fund> funds()
     {
         return funds;
+    }
+
+    /** Answers every request that names this code with HTTP 500. */
+    public void alwaysFail(String code)
+    {
+        alwaysFailing = code;
     }
 
     /** Answers every n-th provider request with HTTP 500 (0 turns it off). */
@@ -151,6 +176,8 @@ public final class SyntheticUniverse implements HttpGet
         var number = providerRequests.incrementAndGet();
         if (failEvery > 0 && number % failEvery == 0)
             return RecordingHttp.json(500, "");
+        if (!alwaysFailing.isEmpty() && uri.toString().contains(alwaysFailing))
+            return RecordingHttp.json(500, "");
         var path = uri.getPath().replaceAll("/[A-Z]{2}[0-9A-Z]{10}$", "/{isin}");
         synchronized (this)
         {
@@ -188,7 +215,7 @@ public final class SyntheticUniverse implements HttpGet
             if (!isin.startsWith("XS00000"))
                 return RecordingHttp.json(404, "");
             var c = Integer.parseInt(isin.substring(7)) - 1;
-            if (c < 0 || c >= companies)
+            if (c < 0 || c >= companies || unknownToProvider(c))
                 return RecordingHttp.json(404, "");
             return RecordingHttp.json(200, "{\"isin\":\"" + isin + "\",\"ticker\":\"S" + c + "\",\"name\":\""
                             + companyName(c) + "\",\"logo\":null,\"country\":\"" + COUNTRIES[c % COUNTRIES.length]
@@ -208,7 +235,20 @@ public final class SyntheticUniverse implements HttpGet
         if (p.startsWith("/api/1/bonds/list"))
             return RecordingHttp.json(200, "{\"data\":[],\"total\":0,\"offset\":0,\"limit\":50}");
         if (p.startsWith("/api/1/equity/regions/"))
+        {
+            var isin = p.substring(p.lastIndexOf('/') + 1);
+            if (isin.startsWith("XS00000"))
+            {
+                var c = Integer.parseInt(isin.substring(7)) - 1;
+                if (c >= 0 && c < companies && !unknownToProvider(c) && hasRevenue(c))
+                    return RecordingHttp.json(200, "[{\"period\":\"2025-12-31\",\"unit\":\"u_usd\","
+                                    + "\"axis\":\"srt_StatementGeographicalAxis\",\"label\":\"United States\","
+                                    + "\"value\":6,\"percentage\":60,\"member\":\"country_US\",\"symbol\":\"S\"},"
+                                    + "{\"period\":\"2025-12-31\",\"unit\":\"u_usd\",\"axis\":\"srt_StatementGeographicalAxis\","
+                                    + "\"label\":\"Europe\",\"value\":4,\"percentage\":40,\"member\":\"Europe\",\"symbol\":\"S\"}]");
+            }
             return RecordingHttp.json(200, "[]");
+        }
         return RecordingHttp.json(404, "");
     }
 }

@@ -44,6 +44,7 @@ public final class RunState
     private List<Attempt> attempts = List.of();
     private Optional<String> fingerprint = Optional.empty();
     private Optional<Instant> nextDueAt = Optional.empty();
+    private Map<Map<String, String>, LookThroughSession.LookupBackoff> lookupBackoff = new HashMap<>();
     private byte[] salt;
 
     private RunState(byte[] salt)
@@ -99,6 +100,16 @@ public final class RunState
             state.attempts = List.copyOf(attempts);
             state.fingerprint = json.has("fingerprint") ? Optional.of(json.get("fingerprint").getAsString())
                             : Optional.empty();
+            if (json.has("lookupBackoff"))
+                for (var item : json.getAsJsonArray("lookupBackoff"))
+                {
+                    var object = item.getAsJsonObject();
+                    var identifiers = new TreeMap<String, String>();
+                    object.getAsJsonObject("identifiers").entrySet()
+                                    .forEach(entry -> identifiers.put(entry.getKey(), entry.getValue().getAsString()));
+                    state.lookupBackoff.put(Map.copyOf(identifiers), new LookThroughSession.LookupBackoff(
+                                    object.get("failures").getAsInt(), Instant.parse(object.get("nextAttempt").getAsString())));
+                }
             state.nextDueAt = json.has("nextDueAt") ? Optional.of(Instant.parse(json.get("nextDueAt").getAsString()))
                             : Optional.empty();
             return Optional.of(state);
@@ -150,6 +161,17 @@ public final class RunState
         json.add("attempts", attemptsJson);
         fingerprint.ifPresent(value -> json.addProperty("fingerprint", value));
         nextDueAt.ifPresent(value -> json.addProperty("nextDueAt", value.toString()));
+        var backoffJson = new JsonArray();
+        lookupBackoff.forEach((identifiers, value) -> {
+            var object = new JsonObject();
+            var ids = new JsonObject();
+            new TreeMap<>(identifiers).forEach(ids::addProperty);
+            object.add("identifiers", ids);
+            object.addProperty("failures", value.failures());
+            object.addProperty("nextAttempt", value.nextAttempt().toString());
+            backoffJson.add(object);
+        });
+        json.add("lookupBackoff", backoffJson);
         Files.createDirectories(directory);
         AtomicFiles.write(directory.resolve(FILE),
                         new GsonBuilder().setPrettyPrinting().create().toJson(json).getBytes(StandardCharsets.UTF_8));
@@ -193,6 +215,12 @@ public final class RunState
     public void setFingerprint(Optional<String> fingerprint)
     {
         this.fingerprint = fingerprint;
+    }
+
+    /** Classification lookups on hold after failures, by identifiers; modifiable. */
+    public Map<Map<String, String>, LookThroughSession.LookupBackoff> lookupBackoff()
+    {
+        return lookupBackoff;
     }
 
     /** When the next run has provider work even if its inputs are unchanged. */

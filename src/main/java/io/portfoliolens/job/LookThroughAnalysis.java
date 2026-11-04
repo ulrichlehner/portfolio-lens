@@ -46,7 +46,7 @@ public final class LookThroughAnalysis
         for (var position : valuation.positions())
         {
             var instrument = position.security().asCompositionInstrument();
-            var resolved = resolver.resolve(instrument, evidence, ignored -> List.of(), () -> false);
+            var resolved = notRetrieved(resolver.resolve(instrument, evidence, ignored -> List.of(), () -> false));
             resolutions.put(instrument, resolved);
             owned.put(position.security(), resolved);
         }
@@ -61,7 +61,7 @@ public final class LookThroughAnalysis
                 continue;
             var composition = supplied.orElseThrow();
             var fund = composition.provenance().fund();
-            var resolved = resolver.resolve(fund, evidence, ignored -> List.of(), () -> false);
+            var resolved = notRetrieved(resolver.resolve(fund, evidence, ignored -> List.of(), () -> false));
             resolutions.put(fund, resolved);
             if (resolved.state() == State.FUND)
             {
@@ -73,7 +73,7 @@ public final class LookThroughAnalysis
             }
             for (var row : composition.constituents())
             {
-                var resolution = resolver.resolve(row.instrument(), evidence, ignored -> List.of(), () -> false);
+                var resolution = notRetrieved(resolver.resolve(row.instrument(), evidence, ignored -> List.of(), () -> false));
                 var lookup = lookups.get(row.instrument().identifiers());
                 resolutions.put(row.instrument(), lookup != null && isOpen(resolution) ? lookup : resolution);
             }
@@ -142,6 +142,17 @@ public final class LookThroughAnalysis
             case FAILED -> 1;
             default -> 0;
         };
+    }
+
+    /**
+     * The calculation never looks anything up; an instrument without evidence here has no answer
+     * yet, which is not the same as an exhausted budget.
+     */
+    private static InstrumentResolution notRetrieved(InstrumentResolution resolution)
+    {
+        return resolution.lookupStatus() == InstrumentResolution.LookupStatus.BUDGET_EXHAUSTED
+                        ? resolution.withLookupStatus(InstrumentResolution.LookupStatus.NOT_RETRIEVED)
+                        : resolution;
     }
 
     /** Without evidence of its own, only the outcome of the lookup tells why. */

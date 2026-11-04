@@ -1209,7 +1209,7 @@ public final class LookThroughViewPresenter
         return switch (resolution.lookupStatus())
         {
             case FAILED -> Texts.LookThroughReasonLookupFailed;
-            case BUDGET_EXHAUSTED -> Texts.LookThroughReasonLookupPending;
+            case BUDGET_EXHAUSTED, BACKOFF, LOOKUP_LIMIT, NOT_RETRIEVED -> Texts.LookThroughReasonLookupPending;
             case ATTEMPTED -> InstrumentResolver.indicatesNonCompany(resolution.source().label())
                             ? Texts.LookThroughReasonNameNotCompany
                             : Texts.LookThroughReasonNoClassificationFound;

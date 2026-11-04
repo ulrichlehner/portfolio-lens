@@ -7,6 +7,7 @@ import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -375,10 +376,129 @@ public final class LookThroughSession implements RefreshGateway
             }
             // A stored answer counts as the answered lookup, as in the refresh.
             var answer = known;
+            // without a stored answer the constituent waits for the catch-up of a later run
             resolutions.add(answer != null ? resolver.resolve(instrument, List.of(), ignored -> answer, () -> true)
-                            : resolver.resolve(instrument, List.of(), ignored -> List.of(), () -> false));
+                            : notRetrieved(resolver.resolve(instrument, List.of(), ignored -> List.of(), () -> false)));
         }
         return List.copyOf(resolutions);
+    }
+
+    private static InstrumentResolution notRetrieved(InstrumentResolution resolution)
+    {
+        return resolution.lookupStatus() == InstrumentResolution.LookupStatus.BUDGET_EXHAUSTED
+                        ? resolution.withLookupStatus(InstrumentResolution.LookupStatus.NOT_RETRIEVED)
+                        : resolution;
+    }
+
+    /** Retry state of one classification lookup that failed, kept between runs. */
+    public record LookupBackoff(int failures, Instant nextAttempt)
+    {
+    }
+
+    /**
+     * What a catch-up did: lookups made, lookups still due (stopped by the time limit or the
+     * budget), lookups on hold after failures, and the earliest retry of those on hold.
+     */
+    public record CatchUp(int looked, int due, int held, Optional<Instant> nextAttempt)
+    {
+    }
+
+    /** First retry after one hour, then four times longer each failure, at most a week. */
+    static Instant nextAttempt(Instant now, int failures)
+    {
+        var hours = Math.min(7 * 24, (long) Math.pow(4, Math.max(0, failures - 1)));
+        return now.plus(Duration.ofHours(hours));
+    }
+
+    /**
+     * Looks up the constituents of retained compositions that have no stored classification yet,
+     * for example because an earlier lookup failed or a limit stopped it, without requesting the
+     * composition again. Lookups that failed before wait for their backoff; new failures extend it.
+     * Stops at the deadline or when the budget refuses.
+     */
+    public CatchUp catchUp(ProviderAccount account, List<CompositionInstrument> funds, Instant deadline,
+                    Map<Map<String, String>, LookupBackoff> backoff)
+    {
+        int looked = 0;
+        int due = 0;
+        int onHold = 0;
+        Optional<Instant> next = Optional.empty();
+        var seen = new HashSet<Key>();
+        for (var fund : funds)
+        {
+            var retained = store.read(account, fund).usableComposition();
+            if (retained.isEmpty())
+                continue;
+            for (var row : retained.get().source().constituents())
+            {
+                var instrument = row.instrument();
+                if (instrument.identifiers().isEmpty())
+                    continue;
+                var key = classificationKey(account, instrument);
+                if (!seen.add(key) || restoreEvidence(account, instrument))
+                    continue;
+                var held = backoff.get(key.identifiers());
+                if (held != null && held.nextAttempt().isAfter(clock.instant()))
+                {
+                    onHold++;
+                    next = next.filter(at -> at.isBefore(held.nextAttempt())).or(() -> Optional.of(held.nextAttempt()));
+                    continue;
+                }
+                if (Instant.now().isAfter(deadline) || !budget.acquirePermit(account, classificationCost))
+                {
+                    due++;
+                    continue;
+                }
+                var requests = new AtomicInteger();
+                try
+                {
+                    classifyCached(account, instrument, true, requests);
+                    backoff.remove(key.identifiers());
+                    looked++;
+                }
+                catch (IOException | RuntimeException e)
+                {
+                    var failures = held == null ? 1 : held.failures() + 1;
+                    var retry = nextAttempt(clock.instant(), failures);
+                    backoff.put(key.identifiers(), new LookupBackoff(failures, retry));
+                    if (e instanceof CompositionRefreshCoordinator.EnrichmentFailure failure)
+                        budget.record(account, failure.result());
+                    onHold++;
+                    next = next.filter(at -> at.isBefore(retry)).or(() -> Optional.of(retry));
+                }
+                finally
+                {
+                    release(account, requests);
+                }
+            }
+        }
+        synchronized (evidenceCache)
+        {
+            restored.clear();
+        }
+        return new CatchUp(looked, due, onHold, next);
+    }
+
+    /**
+     * Stores the classification answers that a result used and the store does not hold yet, so a
+     * later run can restore every resolution of this one.
+     */
+    public void persistResolutions(ProviderAccount account, List<InstrumentResolution> resolutions)
+    {
+        var generation = store.generation(account);
+        for (var resolution : resolutions)
+        {
+            var status = resolution.lookupStatus();
+            if (resolution.state() == InstrumentResolution.State.UNRESOLVED
+                            || resolution.source().identifiers().isEmpty()
+                            || status != InstrumentResolution.LookupStatus.ATTEMPTED
+                                            && status != InstrumentResolution.LookupStatus.NOT_NEEDED)
+                continue;
+            var key = classificationKey(account, resolution.source());
+            if (store.readEvidence(account, key.identifiers()).isPresent())
+                continue;
+            store.writeEvidence(account, key.identifiers(), resolution.evidence(), generation);
+        }
     }
 
     public synchronized void configure(CompositionPersistencePolicy policy, Optional<Boolean> preference)

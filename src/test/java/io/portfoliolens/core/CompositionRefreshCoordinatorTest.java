@@ -458,7 +458,8 @@ public class CompositionRefreshCoordinatorTest
             assertEquals(3, coordinator.read(account, fund).resolutions().size());
             assertEquals(InstrumentResolution.State.CASH_OR_OTHER,
                             coordinator.read(account, fund).resolutions().getFirst().state());
-            assertEquals(InstrumentResolution.LookupStatus.BUDGET_EXHAUSTED,
+            // the cap of one lookup per refresh stopped it, and the status names that limit
+            assertEquals(InstrumentResolution.LookupStatus.LOOKUP_LIMIT,
                             coordinator.read(account, fund).resolutions().get(1).lookupStatus());
             assertEquals(Disposition.DEFERRED, coordinator.refresh(other, fund, true).join().disposition());
             assertEquals(1, calls.get());

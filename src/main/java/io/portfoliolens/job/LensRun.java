@@ -244,9 +244,21 @@ public final class LensRun
                 }
             }
 
+            // constituents of stored compositions without a stored answer are looked up here,
+            // so a failure or a limit in an earlier run is made good without a new composition
+            var catchUp = settings.providerEnabled()
+                            ? session.catchUp(ACCOUNT, funds, deadline, state.lookupBackoff())
+                            : new LookThroughSession.CatchUp(0, 0, 0, Optional.empty());
+            if (catchUp.looked() + catchUp.due() + catchUp.held() > 0)
+                LOG.info("classification catch-up: " + catchUp.looked() + " looked up, " + catchUp.due()
+                                + " left for the next run, " + catchUp.held() + " on hold after failures");
+
             var retained = funds.stream().map(fund -> session.read(ACCOUNT, fund)).toList();
             var result = new LookThroughAnalysis().calculate(scope.valuation(), retained, session.classifications());
             LOG.info(LookThroughAnalysis.diagnostics(result));
+            if (settings.providerEnabled())
+                session.persistResolutions(ACCOUNT, result.contributions().stream()
+                                .flatMap(contribution -> contribution.resolution().stream()).toList());
 
             var attributes = CompanyEnrichmentService.Snapshot.empty();
             if (enrichment != null)
@@ -283,7 +295,7 @@ public final class LensRun
                             .flatMap(r -> r.retryAt().stream()).min(Comparator.naturalOrder());
             var pendingLookups = pending + (int) refreshes.values().stream()
                             .filter(r -> r.disposition() == Disposition.DEFERRED || r.disposition() == Disposition.BUSY)
-                            .count() + attributes.pending();
+                            .count() + attributes.pending() + catchUp.due();
 
             var input = new PageInput(clock.instant(), clock.getZone(), model.file().label(), result, attributes,
                             dataStatus, banner, providerState(), FundOverlap.of(result), scope.accountCash(),
@@ -305,7 +317,10 @@ public final class LensRun
             state.setBudget(session.budget().snapshot());
             state.setAttempts(session.coordinator().attempts(ACCOUNT));
             state.setFingerprint(Optional.of(fingerprint));
-            state.setNextDueAt(Optional.of(nextDue(started, refreshes, pendingLookups)));
+            var due = nextDue(started, refreshes, pendingLookups);
+            if (catchUp.nextAttempt().filter(due::isAfter).isPresent())
+                due = catchUp.nextAttempt().get();
+            state.setNextDueAt(Optional.of(due));
             try
             {
                 state.write(settings.cacheDir(), ACCOUNT);
@@ -318,6 +333,7 @@ public final class LensRun
             if (settings.providerEnabled())
                 status.budget(session.budget().usage());
             writeStatus(status);
+            LOG.info(providerHttp.summary());
             var usage = session.budget().usage();
             LOG.info("wrote " + PageWriter.PAGE + ": " + funds.size() + " instruments looked at, "
                             + providerHttp.count() + " provider and register requests, " + pendingLookups

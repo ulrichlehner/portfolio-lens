@@ -349,7 +349,16 @@ public final class CompositionRefreshCoordinator implements AutoCloseable
                 entry.noComposition = noComposition;
                 boolean unusableComposition = !noComposition && received.isPresent() && usable.isEmpty()
                                 && unverified.isEmpty();
-                entry.retryAt = unusableComposition ? clock.instant().plus(budget.getFailureBackoff())
+                // a failed answer holds this instrument only; the account backs off on its own
+                // rules (rate limits, authentication, failures in a row)
+                boolean failed = switch (result.status())
+                {
+                    case RECEIVED, UNAVAILABLE, UNSUPPORTED, CANCELLED -> false;
+                    // account-wide states, lifted by a new key or the provider's retry time
+                    case AUTHENTICATION_FAILED, ENTITLEMENT_FAILED, RATE_LIMITED -> false;
+                    default -> true;
+                };
+                entry.retryAt = unusableComposition || failed ? clock.instant().plus(budget.getFailureBackoff())
                                 : Instant.MIN;
             }
         }
@@ -427,7 +436,13 @@ public final class CompositionRefreshCoordinator implements AutoCloseable
             }
             if (!admitted)
             {
-                task.complete(initial);
+                // name the limit that stopped the lookup
+                var limit = permits >= maxEnrichmentLookups ? InstrumentResolution.LookupStatus.LOOKUP_LIMIT
+                                : budget.refusal(account, enrichmentCost)
+                                                .orElse(InstrumentResolution.LookupStatus.BUDGET_EXHAUSTED);
+                task.complete(initial.lookupStatus() == InstrumentResolution.LookupStatus.BUDGET_EXHAUSTED
+                                ? initial.withLookupStatus(limit)
+                                : initial);
                 continue;
             }
             try

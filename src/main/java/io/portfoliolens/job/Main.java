@@ -33,6 +33,9 @@ public final class Main
                     file given with --config (the environment wins). See the README for all settings.
                     """;
 
+    /** Kept referenced so the configured level is not lost to garbage collection. */
+    private static final Logger LENS_LOGGER = Logger.getLogger("io.portfoliolens");
+
     private Main()
     {
     }
@@ -166,6 +169,12 @@ public final class Main
     /** One line per event on standard error, without stack traces of provider payloads. */
     static void configureLogging()
     {
+        configureLogging(System.getenv("LENS_LOG_LEVEL"));
+    }
+
+    /** {@code levelName} is a JDK logging level such as FINE; null means INFO. */
+    static void configureLogging(String levelName)
+    {
         var root = Logger.getLogger("");
         for (var handler : root.getHandlers())
             root.removeHandler(handler);
@@ -181,9 +190,11 @@ public final class Main
                                 + formatMessage(record) + System.lineSeparator();
             }
         });
-        var level = Optional.ofNullable(System.getenv("LENS_LOG_LEVEL")).map(Level::parse).orElse(Level.INFO);
-        handler.setLevel(level);
-        root.setLevel(level);
+        // the level applies to Lens only: JDK loggers (TLS, HTTP client) stay at INFO
+        var level = Optional.ofNullable(levelName).map(Level::parse).orElse(Level.INFO);
+        handler.setLevel(level.intValue() < Level.INFO.intValue() ? level : Level.INFO);
+        root.setLevel(Level.INFO);
         root.addHandler(handler);
+        LENS_LOGGER.setLevel(level);
     }
 }

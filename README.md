@@ -77,7 +77,7 @@ the page or the status file.
 | `LENS_RUN_TIMEOUT` | `PT2M` | time limit for provider work in one run; the rest waits for the next run |
 | `LENS_CACHE_DIR` | `$XDG_CACHE_HOME/portfolio-lens`, else `~/.cache/portfolio-lens` | cache and run state |
 | `LENS_OUTPUT_DIR` | required for `run` | where `index.html` and `status.json` are written |
-| `LENS_LOG_LEVEL` | `INFO` | `FINE` adds instrument identifiers to the log |
+| `LENS_LOG_LEVEL` | `INFO` | `FINE` adds instrument identifiers to the Lens log; JDK loggers stay at `INFO` |
 
 `true` and `false` are the only accepted values of the switches; anything else is an error.
 
@@ -119,6 +119,11 @@ java -jar portfolio-lens.jar run     # one complete run
 | 73 | output or cache directory cannot be written |
 
 A failed run leaves the previous page in place and records the failure in `status.json`.
+
+Each run logs one line with its provider and register requests by type (fund composition, company
+profile, classification search, revenue split, GLEIF register) and outcome (found, not found,
+failed). A lookup that fails waits before its retry, from one hour up to a week, so a company the
+provider cannot answer does not cost a request on every run.
 
 ## Scheduling
 

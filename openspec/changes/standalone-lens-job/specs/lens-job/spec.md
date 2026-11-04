@@ -61,6 +61,10 @@ A run SHALL compare a fingerprint of its inputs with the one stored by the previ
 - **WHEN** two runs five minutes apart see identical holdings, instruments, configuration and cache, and no fund is due for refresh
 - **THEN** the second run sends no provider request, leaves `index.html` unchanged and updates the last check time in the status file.
 
+#### Scenario: Unchanged input after the first fill
+- **WHEN** three runs ten minutes apart follow a completed first fill and nothing changed in PP
+- **THEN** each of them makes at most a handful of provider or register requests.
+
 #### Scenario: Price changed
 - **WHEN** a holding's valuation changed since the previous run
 - **THEN** the run recalculates and rewrites the page without provider requests for funds whose compositions are within their refresh cadence.
@@ -114,6 +118,14 @@ The job SHALL log to standard error with one line per event: run start, skip, co
 #### Scenario: Normal run log
 - **WHEN** a run completes at the default log level
 - **THEN** the log names the number of funds, provider requests, pending lookups and the output file, and no amount or holding name.
+
+#### Scenario: Requests by type
+- **WHEN** a run made provider and register requests
+- **THEN** one INFO line counts them by type (fund composition, company profile, classification search, revenue split, GLEIF register) with found, not found and failed answers, without identifiers.
+
+#### Scenario: Debug level
+- **WHEN** `LENS_LOG_LEVEL` is FINE
+- **THEN** only the Lens loggers log at FINE; the JDK's TLS and HTTP client loggers stay at INFO.
 
 ### Requirement: Budget reporting
 Each run SHALL record in the status file the request units used in the rolling 24-hour window, the capacity and whether the budget is used up, and SHALL log a warning while it is used up. Funds SHALL be refreshed in descending value, so that a first fill that spreads over several runs covers the largest holdings first.

@@ -134,7 +134,7 @@ public final class Texts
 
     public static final String LookThroughLabelDenominator = "Denominator: current value of held securities, excluding account cash ({0})";
 
-    public static final String LookThroughLabelEmptyPortfolio = "No current holdings in this portfolio. The view covers every security with a nonzero position, without a prior selection.";
+    public static final String LookThroughLabelEmptyPortfolio = "No current holdings in this portfolio file. The breakdown covers every instrument that Portfolio Performance reports as held.";
 
     public static final String LookThroughLabelNoDenominator = "No denominator: share percentages are withheld because the held securities value is incomplete or zero.";
 
@@ -278,9 +278,9 @@ public final class Texts
 
     public static final String LookThroughStatusKeyRejected = "Key rejected";
 
-    public static final String LookThroughStatusLimitationDiskFailure = "Writing composition data to disk failed. Composition data is kept in memory only and discarded when Portfolio Performance exits. After restart, initial retrieval is needed again and offline fund exposure remains unresolved until data becomes available.";
+    public static final String LookThroughStatusLimitationDiskFailure = "Writing composition data to the Lens cache directory failed. Composition data was used for this run only; the next run retrieves it again.";
 
-    public static final String LookThroughStatusLimitationSessionOnly = "Composition data is kept in memory only and discarded when Portfolio Performance exits. After restart, initial retrieval is needed again and offline fund exposure remains unresolved until data becomes available.";
+    public static final String LookThroughStatusLimitationSessionOnly = "Provider data is neither requested nor stored until local storage is confirmed with LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED=true.";
 
     public static final String LookThroughStatusMalformed = "Malformed provider response";
 
@@ -302,7 +302,7 @@ public final class Texts
 
     public static final String LookThroughStatusPaneTitle = "Data status";
 
-    public static final String LookThroughStatusPendingRefresh = "(refresh in progress)";
+    public static final String LookThroughStatusPendingRefresh = "(pending for a later run)";
 
     public static final String LookThroughStatusProviderAccount = "Provider {0}, local account {1}";
 
@@ -336,7 +336,7 @@ public final class Texts
 
     public static final String LookThroughStatusRowFailedRetry = "{0} failed, next attempt {1}";
 
-    public static final String LookThroughStatusRowRunning = "Refresh running: {0} active, {1} waiting, {2} of {3} answered";
+    public static final String LookThroughStatusRowRunning = "Lookups: {0} active, {1} waiting, {2} of {3} answered";
 
     public static final String LookThroughStatusRowSettled = "Funds with data: {0}, without composition: {1}";
 
@@ -382,13 +382,13 @@ public final class Texts
 
     public static final String LookThroughSummaryValueIncomplete = "{0} (incomplete)";
 
-    public static final String PrefEulerpoolPersistenceModePersistent = "Provider data is stored on this computer.";
+    public static final String PrefEulerpoolPersistenceModePersistent = "Provider data is stored in the Lens cache directory.";
 
-    public static final String PrefEulerpoolPersistenceModeSessionOnly = "Session only (in memory)";
+    public static final String PrefEulerpoolPersistenceModeSessionOnly = "Provider data is not stored.";
 
-    public static final String PrefEulerpoolPersistenceReasonPolicyProhibited = "Compositions are kept for this session only because the provider does not permit retention.";
+    public static final String PrefEulerpoolPersistenceReasonPolicyProhibited = "Provider data is not used because the provider does not permit retention.";
 
-    public static final String PrefEulerpoolPersistenceReasonPolicyUnverified = "Compositions are kept for this session only until local storage is confirmed.";
+    public static final String PrefEulerpoolPersistenceReasonPolicyUnverified = "Provider data is not used until local storage is confirmed (LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED=true).";
 
-    public static final String PrefEulerpoolPersistenceReasonUserOptOut = "Compositions are kept for this session only because retention is turned off.";
+    public static final String PrefEulerpoolPersistenceReasonUserOptOut = "Provider data is not used because retention is turned off.";
 }

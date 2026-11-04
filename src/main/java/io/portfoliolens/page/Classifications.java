@@ -96,11 +96,16 @@ public final class Classifications
         return Optional.ofNullable(REGIONS.get(countryCode.toUpperCase(Locale.ROOT)));
     }
 
-    /** The English name of a country, or the code when the JDK does not know it. */
+    private static final java.util.Set<String> ISO_COUNTRIES = java.util.Set.of(Locale.getISOCountries());
+
+    /** The English name of a country, or the code when it is not an ISO 3166 country the JDK names. */
     public static String countryName(String countryCode)
     {
-        var name = Locale.of("", countryCode.toUpperCase(Locale.ROOT)).getDisplayCountry(Locale.ENGLISH);
-        return name.isBlank() || name.equalsIgnoreCase(countryCode) ? countryCode : name;
+        var code = countryCode.toUpperCase(Locale.ROOT);
+        if (!ISO_COUNTRIES.contains(code) && !"XK".equals(code))
+            return countryCode;
+        var name = Locale.of("", code).getDisplayCountry(Locale.ENGLISH);
+        return name.isBlank() || name.equalsIgnoreCase(code) ? countryCode : name;
     }
 
     /** The name of a revenue region code, if known. */

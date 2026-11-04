@@ -263,8 +263,7 @@ public final class LensRun
             var facts = funds.stream().map(fund -> {
                 var refresh = refreshes.get(fund);
                 return refresh != null ? LookThroughDataStatus.fundFacts(refresh, ACCOUNT, fund, false)
-                                : LookThroughDataStatus.fundFacts(session.read(ACCOUNT, fund), ACCOUNT, fund,
-                                                settings.providerEnabled());
+                                : LookThroughDataStatus.fundFacts(session.read(ACCOUNT, fund), ACCOUNT, fund, false);
             }).toList();
             var dataStatus = LookThroughDataStatus.present(clock, global, facts,
                             Optional.of(settings.providerEnabled()));

@@ -240,14 +240,15 @@ public class LookThroughDataStatusTest
     }
 
     @Test
-    public void testSessionOnlyAndDiskFailureCarryTheRestartLimitationButPersistentDoesNot()
+    public void testUnconfirmedAndDiskFailureCarryALimitationButPersistentDoesNot()
     {
         var session = model(CompositionStore.State.SESSION_ONLY, CompositionPersistencePolicy.StorageMode.SESSION_ONLY,
                         CompositionPersistencePolicy.Reason.POLICY_UNVERIFIED, List.of());
         assertEquals(StorageMode.SESSION_ONLY, session.mode());
         assertTrue(session.limitationText().isPresent());
-        assertEquals("Composition data is kept in memory only and discarded when Portfolio Performance exits. After restart, initial retrieval is needed again and offline fund exposure remains unresolved until data becomes available.", //
-                        session.limitationText().orElseThrow());
+        // the job has no session: without stored data the provider is not used at all (design D6)
+        assertEquals(Texts.LookThroughStatusLimitationSessionOnly, session.limitationText().orElseThrow());
+        assertTrue(session.limitationText().orElseThrow().contains("LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED=true"));
         assertEquals(CompositionPersistencePolicy.Reason.POLICY_UNVERIFIED, session.reason());
         assertTrue(session.reasonText().isPresent());
 
@@ -255,9 +256,8 @@ public class LookThroughDataStatusTest
                         CompositionPersistencePolicy.Reason.POLICY_UNVERIFIED, List.of());
         assertEquals(StorageMode.DISK_FAILURE, failure.mode());
         assertTrue(failure.limitationText().isPresent());
-        assertTrue(failure.limitationText().orElseThrow().contains("Writing composition data to disk failed"));
-        assertTrue(failure.limitationText().orElseThrow().contains(
-                        "After restart, initial retrieval is needed again and offline fund exposure remains unresolved until data becomes available."));
+        assertTrue(failure.limitationText().orElseThrow().contains("Writing composition data to the Lens cache directory failed"));
+        assertTrue(failure.limitationText().orElseThrow().contains("the next run retrieves it again"));
 
         var persistent = model(CompositionStore.State.PERSISTENT, CompositionPersistencePolicy.StorageMode.PERSISTENT,
                         CompositionPersistencePolicy.Reason.PERMITTED, List.of());

@@ -12,8 +12,8 @@ import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
- * Keeps the port free of Portfolio Performance, Eclipse and Apache HttpClient code, and the
- * calculation core free of anything but the JDK and Gson (AGENTS.md, Rule 3; design D1).
+ * Keeps the port free of Portfolio Performance, Eclipse and Apache HttpClient code (JDK and Gson
+ * only), and the calculation core free of anything but {@code java.*} and Gson (AGENTS.md, Rule 3; design D1).
  */
 public class DependencyRulesTest
 {
@@ -46,6 +46,6 @@ public class DependencyRulesTest
     @Test
     public void testNoPortfolioPerformanceEclipseOrApacheCode() throws IOException
     {
-        assertEquals(List.of(), violations(MAIN, Pattern.compile("(java\\.|com\\.google\\.gson\\.|io\\.portfoliolens\\.)")));
+        assertEquals(List.of(), violations(MAIN, Pattern.compile("(java\\.|javax\\.crypto\\.|com\\.google\\.gson\\.|io\\.portfoliolens\\.)")));
     }
 }

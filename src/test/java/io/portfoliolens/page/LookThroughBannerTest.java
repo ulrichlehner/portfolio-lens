@@ -27,7 +27,7 @@ public class LookThroughBannerTest
     {
         // The progress is shown in the summary row, so no banner kind exists
         // for it and a running refresh cannot push the view down.
-        assertEquals(List.of(Kind.SUSPENDED, Kind.NO_KEY, Kind.EMPTY), List.of(Kind.values()));
+        assertEquals(List.of(Kind.UNCONFIRMED, Kind.SUSPENDED, Kind.NO_KEY, Kind.EMPTY), List.of(Kind.values()));
         assertEquals(Optional.empty(), select(KEY, false, true, false));
     }
 
@@ -63,5 +63,15 @@ public class LookThroughBannerTest
     public void testConfiguredKeyWithoutProblemsShowsNoBanner()
     {
         assertEquals(Optional.empty(), select(KEY, false, true, false));
+    }
+
+    @Test
+    public void testUnconfirmedKeyWinsOverEveryOtherState()
+    {
+        var unconfirmed = new LookThroughBanner.Facts(Optional.of(true), true, true, true, true);
+        assertEquals(Optional.of(Kind.UNCONFIRMED), LookThroughBanner.select(unconfirmed));
+        // without a key the confirmation is irrelevant
+        var noKey = new LookThroughBanner.Facts(Optional.of(false), false, true, false, true);
+        assertEquals(Optional.of(Kind.NO_KEY), LookThroughBanner.select(noKey));
     }
 }

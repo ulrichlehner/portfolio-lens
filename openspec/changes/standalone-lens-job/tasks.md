@@ -31,9 +31,12 @@ Every build and test runs through `scripts/dev.sh`; nothing is installed on the 
 
 ## 3. Port the providers
 
-- [ ] 3.1 Port `FundCompositionProvider`, `EulerpoolFundCompositionProvider` and `GleifCompanyRegister` into `io.portfoliolens.provider`; replace `WebAccess`, `OnlineHelper` and Apache HttpClient 5 with one JDK `HttpClient` transport (design D4). Verify the provider code compiles without Apache imports.
-- [ ] 3.2 Port `CompositionCredentials` with a read-only `ConfiguredKeyStore` (environment or file, design D5); remove `EquinoxCompositionCredentialStore`, its test and the session replacement path. Verify with `CompositionCredentialsTest` that valid keys are returned, invalid keys are refused and the key never appears in `toString` or exceptions.
-- [ ] 3.3 Port `EulerpoolFundCompositionProviderTest`, `GleifCompanyRegisterTest` and `FundCompositionProviderTest` with fake transports and synthetic payloads written for this repository (no recorded provider responses). Add a test that provider requests contain only identifiers and the key header. Verify `scripts/dev.sh test` passes.
+- [x] 3.1 Port `FundCompositionProvider`, `EulerpoolFundCompositionProvider` and `GleifCompanyRegister` into `io.portfoliolens.provider`; replace `WebAccess`, `OnlineHelper` and Apache HttpClient 5 with one JDK `HttpClient` transport (design D4). Verify the provider code compiles without Apache imports.
+  - Evidence: providers use `io.portfoliolens.http.JdkHttpGet` (no redirects, 5 s connect and 30 s request timeouts, user agent `PortfolioLens/<version>`); `DependencyRulesTest` confirms no Apache import.
+- [x] 3.2 Port `CompositionCredentials` with a read-only `ConfiguredKeyStore` (environment or file, design D5); remove `EquinoxCompositionCredentialStore`, its test and the session replacement path. Verify with `CompositionCredentialsTest` that valid keys are returned, invalid keys are refused and the key never appears in `toString` or exceptions.
+  - Evidence: `CompositionCredentialsTest` (4 tests) passes; the store interface is read-only (`KeyStore`), Equinox store and its test are not ported.
+- [x] 3.3 Port `EulerpoolFundCompositionProviderTest`, `GleifCompanyRegisterTest` and `FundCompositionProviderTest` with fake transports and synthetic payloads written for this repository (no recorded provider responses). Add a test that provider requests contain only identifiers and the key header. Verify `scripts/dev.sh test` passes.
+  - Evidence: `EulerpoolFundCompositionProviderTest` (39), `GleifCompanyRegisterTest` (5), `FundCompositionProviderTest` (5) and `ProviderRequestContentTest` (2) pass. Their payloads are the synthetic ones the user wrote for the fork tests; service discovery was replaced by direct construction.
 
 ## 4. PP REST source
 

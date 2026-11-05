@@ -20,6 +20,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.BooleanSupplier;
+import java.util.logging.Logger;
 
 import io.portfoliolens.core.CompositionRefreshCoordinator.EnrichmentFailure;
 import io.portfoliolens.core.InstrumentEvidence.Identifier;
@@ -49,7 +50,8 @@ import io.portfoliolens.core.LookThroughResult.Company;
  * {@link #REVENUE_REFRESH_AFTER}) cause no request.
  * <p>
  * Failures never escape: a single failing company is skipped and tried again
- * after {@link #FAILED_RETRY_AFTER}; {@link #FAILURE_STREAK} failures in a row
+ * after {@link #FAILED_RETRY_AFTER}, then four times later each failure, at most
+ * after a week (see {@link #failedLookups()} to keep this between runs); {@link #FAILURE_STREAK} failures in a row
  * mean the source is unavailable and the lane backs off exponentially. When the
  * budget is exhausted, the provider rate-limits or denies access, the lane
  * stops. A retry is scheduled when its time is known. Companies wait
@@ -60,6 +62,8 @@ import io.portfoliolens.core.LookThroughResult.Company;
  */
 public final class CompanyEnrichmentService implements AutoCloseable
 {
+    private static final Logger LOG = Logger.getLogger(CompanyEnrichmentService.class.getName());
+
     public static final Duration REFRESH_AFTER = Duration.ofDays(30);
     public static final Duration REVENUE_REFRESH_AFTER = Duration.ofDays(90);
     public static final int REGISTER_BATCH = 200;
@@ -256,6 +260,31 @@ public final class CompanyEnrichmentService implements AutoCloseable
     {
     }
 
+    private record Failure(int failures, Instant retryAt)
+    {
+    }
+
+    /**
+     * A lookup of one company that failed, kept between runs so that an answer that always fails
+     * is not requested again by every run. {@code kind} is "PROFILE", "REVENUE" or "REGISTER".
+     */
+    public record FailedLookup(String kind, String isin, int failures, Instant retryAt)
+    {
+        public FailedLookup
+        {
+            Kind.valueOf(kind);
+            Objects.requireNonNull(isin);
+            Objects.requireNonNull(retryAt);
+        }
+    }
+
+    /** First retry after {@link #FAILED_RETRY_AFTER}, then four times longer each failure, at most a week. */
+    static Duration retryDelay(int failures)
+    {
+        var hours = Math.min(7 * 24, FAILED_RETRY_AFTER.toHours() * (long) Math.pow(4, Math.max(0, failures - 1)));
+        return Duration.ofHours(hours);
+    }
+
     private final ProviderAccount account;
     private final ProfileSource profiles;
     private final RevenueSource revenue;
@@ -271,8 +300,8 @@ public final class CompanyEnrichmentService implements AutoCloseable
 
     private final Lane providerLane = new Lane();
     private final Lane registerLane = new Lane();
-    /** Companies whose last request failed individually, with the time of the failure. */
-    private final Map<Attempt, Instant> failed = new HashMap<>();
+    /** Companies whose last request failed individually, with the number of failures and the next retry. */
+    private final Map<Attempt, Failure> failed = new HashMap<>();
     private List<Identifier> companies = List.of();
     private long generation;
     private boolean closed;
@@ -517,8 +546,28 @@ public final class CompanyEnrichmentService implements AutoCloseable
 
     private synchronized boolean recentlyFailed(Attempt attempt)
     {
-        var at = failed.get(attempt);
-        return at != null && at.plus(FAILED_RETRY_AFTER).isAfter(clock.instant());
+        var failure = failed.get(attempt);
+        return failure != null && failure.retryAt().isAfter(clock.instant());
+    }
+
+    private synchronized void succeeded(Attempt attempt)
+    {
+        failed.remove(attempt);
+    }
+
+    /** The company lookups on hold after failures, for the next run. */
+    public synchronized List<FailedLookup> failedLookups()
+    {
+        return failed.entrySet().stream().map(item -> new FailedLookup(item.getKey().kind().name(),
+                        item.getKey().isin(), item.getValue().failures(), item.getValue().retryAt())).toList();
+    }
+
+    /** Restores the lookups on hold that an earlier run reported with {@link #failedLookups()}. */
+    public synchronized void restoreFailedLookups(List<FailedLookup> lookups)
+    {
+        for (var lookup : lookups)
+            failed.put(new Attempt(Kind.valueOf(lookup.kind()), lookup.isin()),
+                            new Failure(lookup.failures(), lookup.retryAt()));
     }
 
     /**
@@ -530,7 +579,12 @@ public final class CompanyEnrichmentService implements AutoCloseable
         streak.add(attempt);
         if (streak.size() < FAILURE_STREAK)
         {
-            failed.put(attempt, clock.instant());
+            var earlier = failed.get(attempt);
+            var failures = earlier == null ? 1 : earlier.failures() + 1;
+            var retryAt = clock.instant().plus(retryDelay(failures));
+            failed.put(attempt, new Failure(failures, retryAt));
+            LOG.fine(() -> attempt.kind().name().toLowerCase(java.util.Locale.ROOT) + " lookup " + attempt.isin()
+                            + " failed " + failures + " time(s); next attempt after " + retryAt);
             return false;
         }
         streak.forEach(failed::remove);
@@ -646,6 +700,7 @@ public final class CompanyEnrichmentService implements AutoCloseable
             }
             return true;
         }
+        succeeded(attempt);
         streak.clear();
         if (publication.answered())
             start(registerLane);
@@ -723,7 +778,10 @@ public final class CompanyEnrichmentService implements AutoCloseable
             {
                 var answer = register.lookup(List.of(isin)).get(isin);
                 if (answer != null)
+                {
                     cache.putRegister(isin, answer);
+                    succeeded(attempt);
+                }
                 else
                     failure(attempt, new ArrayList<>());
             }

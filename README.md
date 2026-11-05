@@ -77,7 +77,7 @@ the page or the status file.
 | `LENS_RUN_TIMEOUT` | `PT2M` | time limit for provider work in one run; the rest waits for the next run |
 | `LENS_CACHE_DIR` | `$XDG_CACHE_HOME/portfolio-lens`, else `~/.cache/portfolio-lens` | cache and run state |
 | `LENS_OUTPUT_DIR` | required for `run` | where `index.html` and `status.json` are written |
-| `LENS_LOG_LEVEL` | `INFO` | `FINE` adds instrument identifiers to the Lens log; JDK loggers stay at `INFO` |
+| `LENS_LOG_LEVEL` | `INFO` | `FINE` adds one line per provider and register request (type, outcome, HTTP status, ISIN) and one per company lookup put on hold; JDK loggers stay at `INFO` |
 
 `true` and `false` are the only accepted values of the switches; anything else is an error.
 
@@ -145,8 +145,8 @@ Overlapping runs are safe: a run that finds another one active exits without cha
 ## Data on disk
 
 - `LENS_CACHE_DIR`: compositions, company profiles and revenue splits (only with the confirmation),
-  GLEIF register data, and `state.json` (request budget, backoff, attempt times, input fingerprint;
-  no amounts, no provider payloads, no secrets). The directory is created readable only by its owner.
+  GLEIF register data, and `state.json` (request budget, backoff, attempt times, lookups on hold by
+  identifier, input fingerprint; no amounts, no provider payloads, no secrets). The directory is created readable only by its owner.
 - `LENS_OUTPUT_DIR`: `index.html` and `status.json`. The page contains your holdings and values;
   serve it only behind authentication.
 

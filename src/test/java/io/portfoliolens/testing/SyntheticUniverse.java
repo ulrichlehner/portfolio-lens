@@ -37,6 +37,9 @@ public final class SyntheticUniverse implements HttpGet
     private final AtomicInteger providerRequests = new AtomicInteger();
     private volatile int failEvery;
     private volatile String alwaysFailing = "";
+    private volatile int outside;
+    private final java.util.Set<String> awkward = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.Set<String> malformedHoldings = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Map<String, AtomicInteger> requestsByPath = new LinkedHashMap<>();
 
     /**
@@ -89,6 +92,29 @@ public final class SyntheticUniverse implements HttpGet
     public static boolean hasRevenue(int index)
     {
         return index % 3 == 0;
+    }
+
+    /**
+     * Adds directly held companies that no fund holds, so their classification comes only from
+     * the held instrument itself. Their indices follow the fund companies.
+     */
+    public void addDirectOutsideFunds(int count)
+    {
+        for (int i = 0; i < count; i++)
+            direct.add(companies + outside + i);
+        outside += count;
+    }
+
+    /** The fund composition request for this code answers with a body that is not JSON. */
+    public void malformedHoldings(String isin)
+    {
+        malformedHoldings.add(isin);
+    }
+
+    /** The profile of this company has descriptive fields of unexpected types. */
+    public void awkwardProfile(String isin)
+    {
+        awkward.add(isin);
     }
 
     public synchronized void resetCounts()
@@ -189,6 +215,8 @@ public final class SyntheticUniverse implements HttpGet
         if (p.startsWith("/api/1/etf/holdings/"))
         {
             var isin = p.substring(p.lastIndexOf('/') + 1);
+            if (malformedHoldings.contains(isin))
+                return RecordingHttp.json(200, "{");
             var fund = funds.stream().filter(f -> f.isin().equals(isin)).findFirst();
             if (fund.isEmpty())
                 return RecordingHttp.json(404, "");
@@ -215,8 +243,12 @@ public final class SyntheticUniverse implements HttpGet
             if (!isin.startsWith("XS00000"))
                 return RecordingHttp.json(404, "");
             var c = Integer.parseInt(isin.substring(7)) - 1;
-            if (c < 0 || c >= companies || unknownToProvider(c))
+            if (c < 0 || c >= companies + outside || unknownToProvider(c))
                 return RecordingHttp.json(404, "");
+            if (awkward.contains(isin))
+                return RecordingHttp.json(200, "{\"isin\":\"" + isin + "\",\"name\":\"" + companyName(c)
+                                + "\",\"country\":0,\"currency\":null,\"sector\":\"" + SECTORS[c % SECTORS.length]
+                                + "\",\"industry\":[],\"mcap\":\"n/a\"}");
             return RecordingHttp.json(200, "{\"isin\":\"" + isin + "\",\"ticker\":\"S" + c + "\",\"name\":\""
                             + companyName(c) + "\",\"logo\":null,\"country\":\"" + COUNTRIES[c % COUNTRIES.length]
                             + "\",\"currency\":\"EUR\",\"employees\":1,\"sector\":\"" + SECTORS[c % SECTORS.length]
@@ -240,7 +272,7 @@ public final class SyntheticUniverse implements HttpGet
             if (isin.startsWith("XS00000"))
             {
                 var c = Integer.parseInt(isin.substring(7)) - 1;
-                if (c >= 0 && c < companies && !unknownToProvider(c) && hasRevenue(c))
+                if (c >= 0 && c < companies + outside && !unknownToProvider(c) && hasRevenue(c))
                     return RecordingHttp.json(200, "[{\"period\":\"2025-12-31\",\"unit\":\"u_usd\","
                                     + "\"axis\":\"srt_StatementGeographicalAxis\",\"label\":\"United States\","
                                     + "\"value\":6,\"percentage\":60,\"member\":\"country_US\",\"symbol\":\"S\"},"

@@ -6,12 +6,16 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import io.portfoliolens.http.HttpGet;
 
 /**
- * Counts the provider and register requests of a run by type and outcome for the log. It never
- * records URLs, identifiers or headers.
+ * Counts the provider and register requests of a run by type and outcome for the log. At FINE it
+ * also logs one line per request with type, outcome, HTTP status and the ISIN it asked for; it never
+ * logs URLs, other query values or headers.
  */
 final class CountingHttpGet implements HttpGet
 {
@@ -32,6 +36,9 @@ final class CountingHttpGet implements HttpGet
     {
         FOUND, NOT_FOUND, FAILED
     }
+
+    private static final Logger LOG = Logger.getLogger(CountingHttpGet.class.getName());
+    private static final Pattern ISIN = Pattern.compile("[A-Z]{2}[A-Z0-9]{9}[0-9]");
 
     private final HttpGet delegate;
     private final AtomicInteger count = new AtomicInteger();
@@ -81,14 +88,28 @@ final class CountingHttpGet implements HttpGet
         try
         {
             var response = delegate.get(uri, headers);
-            add(type, outcome(response));
+            var outcome = outcome(response);
+            add(type, outcome);
+            if (LOG.isLoggable(Level.FINE))
+                LOG.fine("request " + type.label + " " + isin(uri) + ": "
+                                + outcome.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ') + " (HTTP "
+                                + response.status() + ")");
             return response;
         }
         catch (IOException | RuntimeException e)
         {
             add(type, Outcome.FAILED);
+            if (LOG.isLoggable(Level.FINE))
+                LOG.fine("request " + type.label + " " + isin(uri) + ": failed (" + e.getClass().getSimpleName() + ")");
             throw e;
         }
+    }
+
+    /** The ISIN a request names, or "-"; nothing else of the URL. */
+    static String isin(URI uri)
+    {
+        var matcher = ISIN.matcher(uri.getRawPath() + "?" + (uri.getRawQuery() == null ? "" : uri.getRawQuery()));
+        return matcher.find() ? matcher.group() : "-";
     }
 
     private synchronized void add(Type type, Outcome outcome)

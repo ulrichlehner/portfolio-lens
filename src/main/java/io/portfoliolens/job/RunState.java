@@ -22,6 +22,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import io.portfoliolens.core.CompanyEnrichmentService;
 import io.portfoliolens.core.CompositionRefreshCoordinator.Attempt;
 import io.portfoliolens.core.CompositionRequestBudget;
 import io.portfoliolens.core.CompositionRequestBudget.AccountSnapshot;
@@ -30,9 +31,10 @@ import io.portfoliolens.core.ProviderAccount;
 
 /**
  * What one run hands to the next (design D7): provider budget charges, backoff, suspension,
- * per-fund attempt times and the input fingerprint. It holds instrument identifiers of held funds
- * but no provider payload, no amounts and no credentials; the key revision is a salted HMAC of
- * the key with a random salt kept in this file, so it changes when the key changes.
+ * per-fund attempt times, lookups on hold after failures and the input fingerprint. It holds
+ * instrument identifiers of held funds and of companies whose lookup failed, but no provider
+ * payload, no amounts and no credentials; the key revision is a salted HMAC of the key with a
+ * random salt kept in this file, so it changes when the key changes.
  */
 public final class RunState
 {
@@ -45,6 +47,7 @@ public final class RunState
     private Optional<String> fingerprint = Optional.empty();
     private Optional<Instant> nextDueAt = Optional.empty();
     private Map<Map<String, String>, LookThroughSession.LookupBackoff> lookupBackoff = new HashMap<>();
+    private List<CompanyEnrichmentService.FailedLookup> failedLookups = List.of();
     private byte[] salt;
 
     private RunState(byte[] salt)
@@ -110,6 +113,18 @@ public final class RunState
                     state.lookupBackoff.put(Map.copyOf(identifiers), new LookThroughSession.LookupBackoff(
                                     object.get("failures").getAsInt(), Instant.parse(object.get("nextAttempt").getAsString())));
                 }
+            if (json.has("failedLookups"))
+            {
+                var failed = new ArrayList<CompanyEnrichmentService.FailedLookup>();
+                for (var item : json.getAsJsonArray("failedLookups"))
+                {
+                    var object = item.getAsJsonObject();
+                    failed.add(new CompanyEnrichmentService.FailedLookup(object.get("kind").getAsString(),
+                                    object.get("isin").getAsString(), object.get("failures").getAsInt(),
+                                    Instant.parse(object.get("retryAt").getAsString())));
+                }
+                state.failedLookups = List.copyOf(failed);
+            }
             state.nextDueAt = json.has("nextDueAt") ? Optional.of(Instant.parse(json.get("nextDueAt").getAsString()))
                             : Optional.empty();
             return Optional.of(state);
@@ -172,6 +187,17 @@ public final class RunState
             backoffJson.add(object);
         });
         json.add("lookupBackoff", backoffJson);
+        var failedJson = new JsonArray();
+        for (var lookup : failedLookups)
+        {
+            var object = new JsonObject();
+            object.addProperty("kind", lookup.kind());
+            object.addProperty("isin", lookup.isin());
+            object.addProperty("failures", lookup.failures());
+            object.addProperty("retryAt", lookup.retryAt().toString());
+            failedJson.add(object);
+        }
+        json.add("failedLookups", failedJson);
         Files.createDirectories(directory);
         AtomicFiles.write(directory.resolve(FILE),
                         new GsonBuilder().setPrettyPrinting().create().toJson(json).getBytes(StandardCharsets.UTF_8));
@@ -221,6 +247,17 @@ public final class RunState
     public Map<Map<String, String>, LookThroughSession.LookupBackoff> lookupBackoff()
     {
         return lookupBackoff;
+    }
+
+    /** Company enrichment lookups on hold after failures. */
+    public List<CompanyEnrichmentService.FailedLookup> failedLookups()
+    {
+        return failedLookups;
+    }
+
+    public void setFailedLookups(List<CompanyEnrichmentService.FailedLookup> failedLookups)
+    {
+        this.failedLookups = List.copyOf(failedLookups);
     }
 
     /** When the next run has provider work even if its inputs are unchanged. */

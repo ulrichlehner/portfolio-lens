@@ -134,6 +134,61 @@ public class UnchangedRunsTest
         }
     }
 
+    /**
+     * Directly held shares that no fund holds are classified only as held instruments, one of them
+     * after a composition answer that cannot be read, and two companies have profiles with fields
+     * of unexpected types. After the first run nothing is requested again and no resolution is lost.
+     */
+    @Test
+    public void testHeldShareOutsideFundsAndAwkwardProfilesSettleAtZeroRequests() throws Exception
+    {
+        var universe = new SyntheticUniverse(600, 4, 6);
+        universe.addDirectOutsideFunds(2);
+        universe.awkwardProfile(SyntheticUniverse.companyIsin(30));
+        universe.awkwardProfile(SyntheticUniverse.companyIsin(31));
+        // the second share outside funds gets a composition answer that cannot be read, so later
+        // runs defer its refresh and classify nothing for it
+        universe.malformedHoldings(SyntheticUniverse.companyIsin(601));
+        var first = run(universe, Map.of());
+        for (int i = 0; i < 4; i++)
+        {
+            now = now.plus(Duration.ofMinutes(10));
+            var later = run(universe, Map.of());
+            assertTrue(later.resolved() >= first.resolved(), first.resolved() + " then " + later.resolved());
+            assertTrue(later.requests() == 0, "requests " + later.requests() + " " + later.byPath());
+            var line = later.log().stream().filter(l -> l.startsWith("Breakdown classification")).findFirst()
+                            .orElseThrow();
+            assertTrue(!line.contains("NOT_RETRIEVED"), line);
+        }
+    }
+
+    /**
+     * A first run stopped by its time limit in the middle of the profile fill: later runs finish the
+     * fill, reach the resolutions of an uninterrupted run and then make no requests.
+     */
+    @Test
+    public void testRunCutByTheTimeLimitFinishesLaterAndSettles() throws Exception
+    {
+        var universe = new SyntheticUniverse(600, 4, 6);
+        universe.addDirectOutsideFunds(1);
+        universe.awkwardProfile(SyntheticUniverse.companyIsin(30));
+        var first = run(universe, Map.of(LensConfig.RUN_TIMEOUT, "PT0.3S"));
+        Outcome last = first;
+        for (int i = 0; i < 4; i++)
+        {
+            now = now.plus(Duration.ofMinutes(10));
+            last = run(universe, Map.of());
+            assertTrue(last.resolved() >= first.resolved(), first.resolved() + " then " + last.resolved());
+        }
+        assertTrue(last.requests() == 0, "requests " + last.requests() + " " + last.byPath());
+        var clean = new SyntheticUniverse(600, 4, 6);
+        clean.addDirectOutsideFunds(1);
+        clean.awkwardProfile(SyntheticUniverse.companyIsin(30));
+        var reference = run(clean, Map.of(LensConfig.CACHE_DIR, temp.resolve("reference").toString()));
+        assertTrue(last.resolved() == reference.resolved(), "recovered " + last.resolved() + " of "
+                        + reference.resolved());
+    }
+
     @Test
     public void testRunsAfterTransientErrorsSettleQuickly() throws Exception
     {

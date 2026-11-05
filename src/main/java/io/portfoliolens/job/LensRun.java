@@ -230,6 +230,8 @@ public final class LensRun
                                 (task, delay) -> {
                                     // retries are left to the next run
                                 });
+                // a company whose answer failed waits for its backoff, also across runs
+                enrichment.restoreFailedLookups(state.failedLookups());
                 var futures = new LinkedHashMap<CompositionInstrument, CompletableFuture<Refresh>>();
                 for (var fund : funds)
                     futures.put(fund, session.refresh(ACCOUNT, fund, false));
@@ -254,7 +256,8 @@ public final class LensRun
                                 + " left for the next run, " + catchUp.held() + " on hold after failures");
 
             var retained = funds.stream().map(fund -> session.read(ACCOUNT, fund)).toList();
-            var result = new LookThroughAnalysis().calculate(scope.valuation(), retained, session.classifications());
+            var result = new LookThroughAnalysis().calculate(scope.valuation(), retained, session.classifications(),
+                            instrument -> session.answered(ACCOUNT, instrument));
             LOG.info(LookThroughAnalysis.diagnostics(result));
             if (settings.providerEnabled())
                 session.persistResolutions(ACCOUNT, result.contributions().stream()
@@ -269,6 +272,9 @@ public final class LensRun
                 enrichment.close();
                 waitIdle(enrichment, Instant.now().plusSeconds(5));
                 companies.flush();
+                var keep = clock.instant().minus(java.time.Duration.ofDays(8));
+                state.setFailedLookups(enrichment.failedLookups().stream()
+                                .filter(lookup -> lookup.retryAt().isAfter(keep)).toList());
             }
 
             var effective = policy.effectiveModeDetail(preference);

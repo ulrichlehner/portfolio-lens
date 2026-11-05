@@ -33,6 +33,18 @@ public final class LookThroughAnalysis
     public LookThroughResult calculate(SecuritiesValuation valuation, List<Snapshot> retained,
                     List<InstrumentEvidence> heldClassifications)
     {
+        return calculate(valuation, retained, heldClassifications, instrument -> false);
+    }
+
+    /**
+     * @param answered
+     *            whether the classification lookup of a held instrument was answered, also without
+     *            evidence; such an instrument shows as looked up, not as not retrieved
+     */
+    public LookThroughResult calculate(SecuritiesValuation valuation, List<Snapshot> retained,
+                    List<InstrumentEvidence> heldClassifications,
+                    java.util.function.Predicate<CompositionInstrument> answered)
+    {
         var evidence = new ArrayList<InstrumentEvidence>(heldClassifications);
         retained.forEach(value -> value.resolutions().stream()
                         .forEach(resolution -> evidence.addAll(resolution.evidence())));
@@ -46,7 +58,8 @@ public final class LookThroughAnalysis
         for (var position : valuation.positions())
         {
             var instrument = position.security().asCompositionInstrument();
-            var resolved = notRetrieved(resolver.resolve(instrument, evidence, ignored -> List.of(), () -> false));
+            var resolved = notRetrieved(resolver.resolve(instrument, evidence, ignored -> List.of(),
+                            () -> answered.test(instrument)));
             resolutions.put(instrument, resolved);
             owned.put(position.security(), resolved);
         }

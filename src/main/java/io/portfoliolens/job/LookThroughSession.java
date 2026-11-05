@@ -411,72 +411,90 @@ public final class LookThroughSession implements RefreshGateway
     }
 
     /**
-     * Looks up the constituents of retained compositions that have no stored classification yet,
-     * for example because an earlier lookup failed or a limit stopped it, without requesting the
-     * composition again. Lookups that failed before wait for their backoff; new failures extend it.
-     * Stops at the deadline or when the budget refuses.
+     * Looks up the constituents of retained compositions, and the held instruments without a
+     * retained composition, that have no stored classification yet, for example because an earlier
+     * lookup failed or a limit stopped it, without requesting the composition again.
+     * Lookups that failed before wait for their backoff; new failures extend it. Stops at the
+     * deadline or when the budget refuses.
      */
     public CatchUp catchUp(ProviderAccount account, List<CompositionInstrument> funds, Instant deadline,
                     Map<Map<String, String>, LookupBackoff> backoff)
     {
-        int looked = 0;
-        int due = 0;
-        int onHold = 0;
-        Optional<Instant> next = Optional.empty();
+        var tally = new Tally();
         var seen = new HashSet<Key>();
         for (var fund : funds)
         {
             var retained = store.read(account, fund).usableComposition();
             if (retained.isEmpty())
-                continue;
-            for (var row : retained.get().source().constituents())
             {
-                var instrument = row.instrument();
-                if (instrument.identifiers().isEmpty())
-                    continue;
-                var key = classificationKey(account, instrument);
-                if (!seen.add(key) || restoreEvidence(account, instrument))
-                    continue;
-                var held = backoff.get(key.identifiers());
-                if (held != null && held.nextAttempt().isAfter(clock.instant()))
-                {
-                    onHold++;
-                    next = next.filter(at -> at.isBefore(held.nextAttempt())).or(() -> Optional.of(held.nextAttempt()));
-                    continue;
-                }
-                if (Instant.now().isAfter(deadline) || !budget.acquirePermit(account, classificationCost))
-                {
-                    due++;
-                    continue;
-                }
-                var requests = new AtomicInteger();
-                try
-                {
-                    classifyCached(account, instrument, true, requests);
-                    backoff.remove(key.identifiers());
-                    looked++;
-                }
-                catch (IOException | RuntimeException e)
-                {
-                    var failures = held == null ? 1 : held.failures() + 1;
-                    var retry = nextAttempt(clock.instant(), failures);
-                    backoff.put(key.identifiers(), new LookupBackoff(failures, retry));
-                    if (e instanceof CompositionRefreshCoordinator.EnrichmentFailure failure)
-                        budget.record(account, failure.result());
-                    onHold++;
-                    next = next.filter(at -> at.isBefore(retry)).or(() -> Optional.of(retry));
-                }
-                finally
-                {
-                    release(account, requests);
-                }
+                // a held instrument without composition, such as a share, is classified itself,
+                // by search first as in the refresh
+                catchUp(account, fund, false, deadline, backoff, seen, tally);
+                continue;
             }
+            for (var row : retained.get().source().constituents())
+                catchUp(account, row.instrument(), true, deadline, backoff, seen, tally);
         }
         synchronized (evidenceCache)
         {
             restored.clear();
         }
-        return new CatchUp(looked, due, onHold, next);
+        return new CatchUp(tally.looked, tally.due, tally.onHold, tally.next);
+    }
+
+    private static final class Tally
+    {
+        private int looked;
+        private int due;
+        private int onHold;
+        private Optional<Instant> next = Optional.empty();
+
+        private void hold(Instant until)
+        {
+            onHold++;
+            next = next.filter(at -> at.isBefore(until)).or(() -> Optional.of(until));
+        }
+    }
+
+    private void catchUp(ProviderAccount account, CompositionInstrument instrument, boolean profileFirst,
+                    Instant deadline, Map<Map<String, String>, LookupBackoff> backoff, Set<Key> seen, Tally tally)
+    {
+        if (instrument.identifiers().isEmpty())
+            return;
+        var key = classificationKey(account, instrument);
+        if (!seen.add(key) || restoreEvidence(account, instrument))
+            return;
+        var held = backoff.get(key.identifiers());
+        if (held != null && held.nextAttempt().isAfter(clock.instant()))
+        {
+            tally.hold(held.nextAttempt());
+            return;
+        }
+        if (Instant.now().isAfter(deadline) || !budget.acquirePermit(account, classificationCost))
+        {
+            tally.due++;
+            return;
+        }
+        var requests = new AtomicInteger();
+        try
+        {
+            classifyCached(account, instrument, profileFirst, requests);
+            backoff.remove(key.identifiers());
+            tally.looked++;
+        }
+        catch (IOException | RuntimeException e)
+        {
+            var failures = held == null ? 1 : held.failures() + 1;
+            var retry = nextAttempt(clock.instant(), failures);
+            backoff.put(key.identifiers(), new LookupBackoff(failures, retry));
+            if (e instanceof CompositionRefreshCoordinator.EnrichmentFailure failure)
+                budget.record(account, failure.result());
+            tally.hold(retry);
+        }
+        finally
+        {
+            release(account, requests);
+        }
     }
 
     /**
@@ -537,6 +555,9 @@ public final class LookThroughSession implements RefreshGateway
     @Override
     public Snapshot read(ProviderAccount account, CompositionInstrument fund)
     {
+        // The held instrument's own stored classification, for example of a directly held share,
+        // is known whether or not this run refreshed it: a deferred refresh classifies nothing.
+        restoreEvidence(account, fund);
         var latest = coordinator.read(account, fund);
         var retained = store.read(account, fund);
         var resolutions = latest.resolutions();
@@ -559,7 +580,6 @@ public final class LookThroughSession implements RefreshGateway
             }
             else
             {
-                restoreEvidence(account, fund);
                 resolutions = storedResolutions(account, composition);
                 synchronized (evidenceCache)
                 {
@@ -801,6 +821,12 @@ public final class LookThroughSession implements RefreshGateway
     {
         var service = enrichment;
         return service == null ? CompanyEnrichmentService.Snapshot.empty() : service.snapshot();
+    }
+
+    /** Whether this session or the store holds an answered classification lookup of the instrument. */
+    public boolean answered(ProviderAccount account, CompositionInstrument instrument)
+    {
+        return !instrument.identifiers().isEmpty() && knownEvidence(account, instrument).isPresent();
     }
 
     /** Cached classification of held instruments and constituents, exposed to the analysis. */

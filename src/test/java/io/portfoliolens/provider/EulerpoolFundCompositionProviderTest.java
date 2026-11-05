@@ -673,6 +673,18 @@ public class EulerpoolFundCompositionProviderTest
         assertTrue(unmapped.country().isEmpty());
         assertTrue(unmapped.marketCapMillions().isEmpty());
 
+        // descriptive fields of an unexpected type or length are unknown, the profile still counts
+        var awkward = new EulerpoolFundCompositionProvider(account -> Optional.of(TOKEN),
+                        (uri, authorization) -> new Response(200, "{\"isin\":\"XX0000000017\",\"country\":7,"
+                                        + "\"currency\":[\"USD\"],\"sector\":\"Invented sector\",\"industry\":\""
+                                        + "x".repeat(2000) + "\",\"mcap\":\"n/a\"}", Optional.empty()),
+                        CLOCK).profile(ACCOUNT, "XX0000000017").orElseThrow();
+        assertEquals(Optional.of("Invented sector"), awkward.sector());
+        assertTrue(awkward.country().isEmpty());
+        assertTrue(awkward.currency().isEmpty());
+        assertTrue(awkward.industry().isEmpty());
+        assertTrue(awkward.marketCapMillions().isEmpty());
+
         assertTrue(new EulerpoolFundCompositionProvider(account -> Optional.of(TOKEN),
                         (uri, authorization) -> new Response(404, null, Optional.empty()), CLOCK)
                                         .profile(ACCOUNT, "XX0000000017").isEmpty());

@@ -81,6 +81,9 @@ public final class EulerpoolFundCompositionProvider implements FundCompositionPr
      */
     public static final int CLASSIFICATION_REQUEST_COST = 3;
 
+    /** Longest descriptive profile value kept; the company cache stores at most 1024 characters. */
+    static final int MAX_PROFILE_TEXT = 256;
+
     @FunctionalInterface
     public interface CredentialAccess
     {
@@ -377,12 +380,18 @@ public final class EulerpoolFundCompositionProvider implements FundCompositionPr
             var row = json.getAsJsonObject();
             if (!isin.equalsIgnoreCase(text(row, "isin").orElse("")))
                 throw new IOException();
-            // Country names that do not map to an ISO code stay unknown.
-            var country = text(row, "country").flatMap(CompanyAttributes::countryOfName);
-            var currency = text(row, "currency").map(String::trim).filter(code -> code.matches("[A-Z]{3}"));
-            var sector = text(row, "sector").map(String::trim).filter(value -> !value.isEmpty());
-            var industry = text(row, "industry").map(String::trim).filter(value -> !value.isEmpty());
-            var marketCap = number(row, "mcap").filter(value -> value.signum() >= 0);
+            // Country names that do not map to an ISO code stay unknown. A descriptive field of an
+            // unexpected type is unknown too: it must not make the whole answer fail, which
+            // would ask for the same answer again in every run.
+            var country = optionalText(row, "country").flatMap(CompanyAttributes::countryOfName);
+            var currency = optionalText(row, "currency").map(String::trim).filter(code -> code.matches("[A-Z]{3}"));
+            // Overlong values stay unknown as well, so that the cache can always store the profile.
+            var sector = optionalText(row, "sector").map(String::trim)
+                            .filter(value -> !value.isEmpty() && value.length() <= MAX_PROFILE_TEXT);
+            var industry = optionalText(row, "industry").map(String::trim)
+                            .filter(value -> !value.isEmpty() && value.length() <= MAX_PROFILE_TEXT);
+            var marketCap = optionalNumber(row, "mcap").filter(value -> value.signum() >= 0)
+                            .filter(value -> value.toPlainString().length() <= MAX_PROFILE_TEXT);
             return new CompanyProfile(isin, country, currency, sector, industry, marketCap, clock.instant());
         }
         catch (RuntimeException e)
@@ -548,8 +557,8 @@ public final class EulerpoolFundCompositionProvider implements FundCompositionPr
             var json = JsonParser.parseReader(reader);
             if (!json.isJsonObject() || reader.peek() != JsonToken.END_DOCUMENT)
                 return Optional.empty();
-            var sector = text(json.getAsJsonObject(), "sector").orElse("");
-            var industry = text(json.getAsJsonObject(), "industry").orElse("");
+            var sector = optionalText(json.getAsJsonObject(), "sector").orElse("");
+            var industry = optionalText(json.getAsJsonObject(), "industry").orElse("");
             var isin = instrument.identifiers().get("ISIN");
             if (isin == null || !isin.equalsIgnoreCase(text(json.getAsJsonObject(), "isin").orElse("")))
                 return Optional.empty();
@@ -710,6 +719,24 @@ public final class EulerpoolFundCompositionProvider implements FundCompositionPr
         if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString())
             throw new IllegalArgumentException();
         return Optional.of(value.getAsString());
+    }
+
+    /** Like {@link #text}, but a value of another type counts as absent. */
+    private static Optional<String> optionalText(JsonObject row, String field)
+    {
+        var value = row.get(field);
+        return value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()
+                        ? Optional.of(value.getAsString())
+                        : Optional.empty();
+    }
+
+    /** Like {@link #number}, but a value of another type counts as absent. */
+    private static Optional<BigDecimal> optionalNumber(JsonObject row, String field)
+    {
+        var value = row.get(field);
+        return value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()
+                        ? Optional.of(new BigDecimal(value.getAsString()))
+                        : Optional.empty();
     }
 
     private static Optional<BigDecimal> number(JsonObject row, String field)

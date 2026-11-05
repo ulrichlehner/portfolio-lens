@@ -73,4 +73,49 @@ public class CountingHttpGetTest
             Main.configureLogging(null);
         }
     }
+
+    @Test
+    public void testFineLogsOneLinePerRequestWithTheIsinOnly() throws Exception
+    {
+        var lines = new java.util.ArrayList<String>();
+        var handler = new java.util.logging.Handler()
+        {
+            @Override
+            public void publish(java.util.logging.LogRecord record)
+            {
+                if (record.getLevel() == Level.FINE)
+                    lines.add(record.getMessage());
+            }
+
+            @Override
+            public void flush()
+            {
+            }
+
+            @Override
+            public void close()
+            {
+            }
+        };
+        var logger = Logger.getLogger(CountingHttpGet.class.getName());
+        var previous = logger.getLevel();
+        logger.setLevel(Level.FINE);
+        logger.addHandler(handler);
+        try
+        {
+            var http = new CountingHttpGet(new RecordingHttp(uri -> uri.getPath().contains("profile")
+                            ? RecordingHttp.json(200, "{\"isin\":\"XX0000000017\"}")
+                            : RecordingHttp.json(404, "")));
+            http.get(URI.create("https://api.eulerpool.com/api/1/equity/profile/XX0000000017"), Map.of());
+            http.get(URI.create("https://api.gleif.org/api/v1/lei-records?filter%5Bisin%5D=XX0000000025&page=secret"),
+                            Map.of());
+            assertEquals(java.util.List.of("request company profile XX0000000017: found (HTTP 200)",
+                            "request GLEIF register XX0000000025: not found (HTTP 404)"), lines);
+        }
+        finally
+        {
+            logger.removeHandler(handler);
+            logger.setLevel(previous);
+        }
+    }
 }

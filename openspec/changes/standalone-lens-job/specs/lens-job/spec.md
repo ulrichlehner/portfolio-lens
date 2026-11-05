@@ -125,7 +125,7 @@ The job SHALL log to standard error with one line per event: run start, skip, co
 
 #### Scenario: Debug level
 - **WHEN** `LENS_LOG_LEVEL` is FINE
-- **THEN** only the Lens loggers log at FINE; the JDK's TLS and HTTP client loggers stay at INFO.
+- **THEN** only the Lens loggers log at FINE; the JDK's TLS and HTTP client loggers stay at INFO. Each provider and register request logs one FINE line with its type, outcome, HTTP status and the ISIN it asked for, and each company lookup put on hold logs one FINE line with the next attempt; no URL, header or other query value is logged.
 
 ### Requirement: Budget reporting
 Each run SHALL record in the status file the request units used in the rolling 24-hour window, the capacity and whether the budget is used up, and SHALL log a warning while it is used up. Funds SHALL be refreshed in descending value, so that a first fill that spreads over several runs covers the largest holdings first.

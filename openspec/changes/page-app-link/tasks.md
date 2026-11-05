@@ -20,5 +20,6 @@ commit of `release-workflow`, or in a later candidate).
 ## 4. Verification and pull request
 
 - [x] 4.1 `scripts/dev.sh test` passes; `scripts/openspec validate page-app-link --strict` and `scripts/openspec validate --specs --strict` pass. Done: 480 tests, 0 failures; both validations pass.
-- [ ] 4.2 Check the header in the browser pane with a synthetic page, light and dark, wide and narrow. Open: not done by the implementing agent, the orchestrator checks it.
+- [x] 4.2 Check the header in the browser pane with a synthetic page, light and dark, wide and narrow.
+  - Evidence (2026-11-05, orchestrator): checked on a page generated from a real portfolio with `LENS_APP_LINK_URL` set (nothing from it is in the repository): the link sits at the top right of the header in light mode at desktop width and below the subtitle in dark mode at 375 px, readable and without overflow.
 - [ ] 4.3 Privacy scan of the diff; commit `feat(page): link back to the application`; push and open a pull request into `main` (minor, compatible interface change named in the body); do not merge without the user. Open: privacy scan, commit and pull request done; merge by the user.

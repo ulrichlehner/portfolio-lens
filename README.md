@@ -224,6 +224,13 @@ A fresh Portfolio Performance workspace has no exchange rates until its first EC
 then Portfolio Performance converts foreign currencies 1:1, and Lens marks those holdings as
 missing conversion instead of using the values.
 
+## Versions
+
+Portfolio Lens uses [Semantic Versioning](https://semver.org/). Releases are tagged `vX.Y.Z`. The
+commands, settings, exit statuses, `status.json` and the cache format are the interface the version
+number describes; before `1.0.0` an incompatible change raises the minor version. Details are in
+[AGENTS.md](AGENTS.md#versioning).
+
 ## License
 
 [Apache License 2.0](LICENSE)

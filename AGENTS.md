@@ -120,6 +120,25 @@ REST tokens.
   body wrapped at 72, explaining what and why.
 - Push, open pull requests and publish releases only when the user authorizes it.
 
+## Versioning
+
+Portfolio Lens follows [Semantic Versioning 2.0.0](https://semver.org/).
+
+- The version lives in `pom.xml`. Between releases it is the next planned version with
+  `-SNAPSHOT`, for example `0.2.0-SNAPSHOT`. Lens shows it in its log and in the page footer.
+- A release is the commit on `main` tagged `vMAJOR.MINOR.PATCH`, for example `v0.1.0`, with the
+  `-SNAPSHOT` suffix removed. Tag and publish only when the user authorizes it.
+- The public interface that the version describes: the `lens` commands and options, the `LENS_*`
+  settings and their meaning, the exit statuses, the fields of `status.json`, and the cache and
+  state in `LENS_CACHE_DIR` (a release must read the data of the previous release or rebuild it by
+  itself). The look of `index.html` is not part of it.
+- MAJOR: an incompatible change of that interface. MINOR: new functionality that stays compatible.
+  PATCH: compatible fixes. While the version is `0.y.z`, an incompatible change raises MINOR and
+  everything else raises PATCH; `1.0.0` follows once Lens runs in the server integration.
+- Conventional Commits show the effect: `feat` is at least MINOR, `fix` PATCH, and `!` or a
+  `BREAKING CHANGE:` footer MAJOR (MINOR before `1.0.0`). Name an interface change in the commit
+  body and in the pull request.
+
 ## Writing texts
 
 - Code, comments, commits, docs and specs in English.

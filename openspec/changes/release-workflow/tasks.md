@@ -24,7 +24,7 @@ is on `docs/release-workflow`).
 
 ## 4. Release candidate (each step needs the user's authorization)
 
-- [ ] 4.1 Pull request `chore(release): 1.0.0-rc.1` setting `pom.xml` to `1.0.0-rc.1`; merge after CI passes.
+- [ ] 4.1 After `page-app-link` is merged: pull request `chore(release): 1.0.0-rc.1` setting `pom.xml` to `1.0.0-rc.1`; merge after CI passes.
 - [ ] 4.2 Tag the merge commit `v1.0.0-rc.1` and push the tag.
 - [ ] 4.3 Verify the release: marked as prerelease, both assets present, `sha256sum -c` passes on a downloaded copy, the unpacked jar reports `1.0.0-rc.1` in `java -jar portfolio-lens.jar check`, the notes contain the notice.
 - [ ] 4.4 Pull request `chore(release): back to 1.0.0-SNAPSHOT`.

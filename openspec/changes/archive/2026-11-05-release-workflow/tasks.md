@@ -39,5 +39,7 @@ is on `docs/release-workflow`).
 
 - [x] 5.1 The infrastructure repository runs `v1.0.0-rc.N` on the server: `check` and scheduled `run` succeed, `status.json` is monitored, the page is served behind authentication. Record the evidence without real portfolio values.
   - Evidence (2026-11-05): the infrastructure repository (inspirespace/infra pull requests 44 and 45) runs `v1.0.0-rc.1` next to PP in a container sharing its network namespace. `lens check` passed once the portfolio file was enabled in PP's REST settings; the first scheduled run wrote the page after about 2 minutes; the container healthcheck (`lastCheckedAt` younger than 30 minutes and `result` not `failed`) reports healthy; the page is served under `/lens/` behind the same two-factor login as PP (without login a redirect to the login portal). The user confirmed the page and the link back to PP in the browser. No portfolio values are recorded here.
-- [ ] 5.2 With the user's authorization: pull request `chore(release): 1.0.0`, tag `v1.0.0`, verify as in 4.3 (not a prerelease).
-- [ ] 5.3 Pull request `chore(release): 1.0.1-SNAPSHOT`.
+- [x] 5.2 With the user's authorization: pull request `chore(release): 1.0.0`, tag `v1.0.0`, verify as in 4.3 (not a prerelease).
+  - Evidence (2026-11-05): pull request 11 merged by the user (merge commit ad2cdc9); the user pushed the annotated tag `v1.0.0`. The release run passed; "Portfolio Lens 1.0.0" is a full release and the latest one, with the archive and its `.sha256`; a downloaded copy passes `shasum -a 256 -c` and the jar manifest has `Implementation-Version: 1.0.0`.
+- [x] 5.3 Pull request `chore(release): 1.0.1-SNAPSHOT`.
+  - Evidence (2026-11-05): this pull request sets `pom.xml` to `1.0.1-SNAPSHOT`.

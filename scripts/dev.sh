@@ -13,9 +13,12 @@ Usage: scripts/dev.sh <command>
 
   test [TestClass]   unit tests, optionally only one test class
   package            build the application
-  run [args]         build, then run the CLI (lens run, lens check, ...) against
-                     Portfolio Performance on this machine; reads scratch/lens.env,
-                     writes the page to scratch/out/
+  check [options]    build, then check the configuration against Portfolio
+                     Performance on this machine (lens check)
+  run [options]      build, then make one Lens run (lens run): writes the page
+                     to scratch/out/index.html
+                     Both read scratch/lens.env and keep the cache in the Docker
+                     volume $CACHE_VOLUME; options go to Lens, e.g. --config <file>
   shell              interactive shell in the container
   clean              delete the build output
   purge              clean, then remove the Docker image and volumes
@@ -50,7 +53,7 @@ case "$cmd" in
     package)
         mvn_in_docker package -DskipTests
         ;;
-    run)
+    check|run)
         mvn_in_docker -q package -DskipTests
         env_file=()
         [ -f "$ROOT/scratch/lens.env" ] && env_file=(--env-file "$ROOT/scratch/lens.env")
@@ -62,7 +65,7 @@ case "$cmd" in
         docker run --rm ${tty[@]+"${tty[@]}"} ${env_file[@]+"${env_file[@]}"} \
             -v "$CACHE_VOLUME":/cache -v "$ROOT":/src -w /src \
             -e LENS_CACHE_DIR=/cache -e LENS_OUTPUT_DIR=/src/scratch/out \
-            "$IMAGE" sh -c '.devcontainer/pp-forward.sh & sleep 0.3; exec java -jar target/portfolio-lens.jar "$@"' lens "$@"
+            "$IMAGE" sh -c '.devcontainer/pp-forward.sh & sleep 0.3; exec java -jar target/portfolio-lens.jar "$@"' lens "$cmd" "$@"
         ;;
     shell)
         image

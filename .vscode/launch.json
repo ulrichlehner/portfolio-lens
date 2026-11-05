@@ -1,13 +1,50 @@
-// Run and debug the Lens CLI inside the dev container (Dev Containers: Reopen in Container).
-// The configuration comes from scratch/lens.env (gitignored, see docs/lens.env.example);
-// the forwarder from .devcontainer/pp-forward.sh makes PP on the host reachable at
+// Run and Debug configurations for Portfolio Lens.
+//
+// The configurations named "(Docker)" run scripts/dev.sh in a terminal, so they work in a
+// host window without Java as well as in the dev container. "Lens check" and "Lens run"
+// talk to Portfolio Performance on this machine with the settings from scratch/lens.env
+// (gitignored, see docs/lens.env.example); the page is written to scratch/out/index.html
+// and the cache stays in the Docker volume portfolio-lens-cache.
+//
+// The configurations named "(debug)" start Lens in the Java debugger and work only in the
+// dev container (Dev Containers: Reopen in Container). They keep their cache in
+// scratch/cache, separate from the Docker volume. The forwarder started by the dev
+// container (.devcontainer/pp-forward.sh) makes PP on the host reachable at
 // http://127.0.0.1:5712.
 {
   "version": "0.2.0",
   "configurations": [
     {
+      "type": "node-terminal",
+      "request": "launch",
+      "name": "Lens check (Docker)",
+      "command": "scripts/dev.sh check",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "node-terminal",
+      "request": "launch",
+      "name": "Lens run (Docker)",
+      "command": "scripts/dev.sh run",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "node-terminal",
+      "request": "launch",
+      "name": "Lens run and open the page (Docker, macOS host)",
+      "command": "scripts/dev.sh run && open scratch/out/index.html",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "node-terminal",
+      "request": "launch",
+      "name": "Tests (Docker)",
+      "command": "scripts/dev.sh test",
+      "cwd": "${workspaceFolder}"
+    },
+    {
       "type": "java",
-      "name": "lens run",
+      "name": "Lens run (debug)",
       "request": "launch",
       "mainClass": "io.portfoliolens.job.Main",
       "projectName": "portfolio-lens",
@@ -20,7 +57,7 @@
     },
     {
       "type": "java",
-      "name": "lens check",
+      "name": "Lens check (debug)",
       "request": "launch",
       "mainClass": "io.portfoliolens.job.Main",
       "projectName": "portfolio-lens",

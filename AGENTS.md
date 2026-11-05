@@ -31,7 +31,7 @@ portfolio-lens/
 - Run every build and test through `scripts/dev.sh` or inside the dev container. `scripts/dev.sh`
   uses the image `portfolio-lens-dev` (built from `.devcontainer/`) and the volumes
   `portfolio-lens-m2` for the Maven cache and `portfolio-lens-cache` for the cache of
-  `scripts/dev.sh run`.
+  `scripts/dev.sh check` and `scripts/dev.sh run`.
 - When work is finished, clean up with `scripts/dev.sh clean`, and with `scripts/dev.sh purge` if
   the user wants. Never remove Docker containers, images or volumes of other projects.
 
@@ -40,7 +40,8 @@ portfolio-lens/
 | Unit tests | `scripts/dev.sh test` |
 | One test class | `scripts/dev.sh test LookThroughEngineTest` |
 | Build | `scripts/dev.sh package` |
-| Run the CLI against the local PP | `scripts/dev.sh run check`, `scripts/dev.sh run run` |
+| Check the configuration against the local PP | `scripts/dev.sh check` |
+| One Lens run against the local PP | `scripts/dev.sh run` |
 | Shell in the container | `scripts/dev.sh shell` |
 | OpenSpec | `scripts/openspec list` |
 | Delete build output | `scripts/dev.sh clean` |

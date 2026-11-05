@@ -179,30 +179,36 @@ contributors and AI agents are in [AGENTS.md](AGENTS.md).
 
 ### Running against Portfolio Performance on this machine
 
-Portfolio Performance on the host accepts only loopback requests. `scripts/dev.sh run` starts a
-forwarder inside the container (`.devcontainer/pp-forward.sh`, socat) that listens on the
+Portfolio Performance on the host accepts only loopback requests. `scripts/dev.sh check` and
+`scripts/dev.sh run` start a forwarder inside the container (`.devcontainer/pp-forward.sh`, socat) that listens on the
 container's `127.0.0.1:5712` and connects to `host.docker.internal:5712`, so Lens keeps talking to
-`http://127.0.0.1:5712`. With Docker Desktop on macOS this reaches services bound to the Mac's
-loopback; this was checked with a stand-in server, not yet with Portfolio Performance itself. If it
-does not work, enable host networking in Docker Desktop and run the container with
-`--network host`.
+`http://127.0.0.1:5712`. With Docker Desktop on macOS this reaches Portfolio Performance on the
+Mac's loopback; this was checked with Portfolio Performance 0.90.0. If it does not work, enable
+host networking in Docker Desktop and run the container with `--network host`.
 
 1. Copy [`docs/lens.env.example`](docs/lens.env.example) to `scratch/lens.env` (gitignored).
 2. Put the PP token into `scratch/pp-token` and, if you use Eulerpool, the key into
    `scratch/eulerpool-key`.
-3. Run:
+3. Start Portfolio Performance with the file open, then check the configuration:
 
 ```bash
-scripts/dev.sh run check
+scripts/dev.sh check
 ```
 
+4. Make a run:
+
 ```bash
-scripts/dev.sh run run
+scripts/dev.sh run
 ```
 
 The page is written to `scratch/out/index.html`; the cache lives in the Docker volume
-`portfolio-lens-cache` (`scripts/dev.sh purge` removes it). In the dev container, the launch
-configurations "lens run" and "lens check" in `.vscode/launch.json` do the same with the debugger.
+`portfolio-lens-cache` (`scripts/dev.sh purge` removes it). Options after the command go to Lens,
+for example `scripts/dev.sh run --config <file>`.
+
+In VS Code, *Run and Debug* has the same commands: "Lens check (Docker)", "Lens run (Docker)",
+"Lens run and open the page (Docker, macOS host)" and "Tests (Docker)" work in a window on the
+Mac and in the dev container. "Lens run (debug)" and "Lens check (debug)" start Lens in the Java
+debugger and work only in the dev container; they keep their cache in `scratch/cache`.
 
 A fresh Portfolio Performance workspace has no exchange rates until its first ECB download; until
 then Portfolio Performance converts foreign currencies 1:1, and Lens marks those holdings as

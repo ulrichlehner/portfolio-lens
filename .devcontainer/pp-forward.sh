@@ -6,7 +6,7 @@
 # header stays loopback, and socat carries the connection to host.docker.internal, which Docker
 # Desktop delivers to the host's loopback interface.
 #
-# Started in the background by the dev container (postStartCommand) and by scripts/dev.sh run.
+# Started in the background by the dev container (postStartCommand) and by scripts/dev.sh check and run.
 port="${LENS_PP_PORT:-5712}"
 target="${LENS_PP_FORWARD_HOST:-host.docker.internal}"
 

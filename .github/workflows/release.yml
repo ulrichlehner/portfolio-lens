@@ -1,0 +1,182 @@
+# Builds, tests and publishes a release for a pushed tag vX.Y.Z or vX.Y.Z-rc.N.
+# A manual run (workflow_dispatch) on any branch builds the archive and uploads it as a workflow
+# artifact, without a tag or a release.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build archive
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # TreemapParityTest and PageSmokeTest run the page script in Node.js; without it they are skipped.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Read the version
+        id: version
+        run: |
+          version="$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout)"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "pom.xml version: ${version}"
+
+      - name: Check the tag
+        if: github.ref_type == 'tag'
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [ "${TAG}" != "v${VERSION}" ]; then
+            echo "Tag ${TAG} does not match the pom.xml version ${VERSION}" >&2
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "Commit ${GITHUB_SHA} is not on main" >&2
+            exit 1
+          fi
+
+      - name: Build and test
+        run: mvn -B verify
+
+      - name: Fail if the Node.js tests were skipped
+        run: |
+          if grep -l '<skipped' target/surefire-reports/TEST-*TreemapParityTest.xml target/surefire-reports/TEST-*PageSmokeTest.xml; then
+            echo "Node.js tests were skipped" >&2
+            exit 1
+          fi
+
+      - name: Check the third-party list
+        run: |
+          for jar in target/lib/*.jar; do
+            name="$(basename "${jar}")"
+            if ! grep -qF "\`${name}\`" release/THIRD-PARTY.md; then
+              echo "${name} is not listed in release/THIRD-PARTY.md" >&2
+              exit 1
+            fi
+          done
+
+      - name: Create the archive
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          dir="portfolio-lens-${VERSION}"
+          mkdir -p "dist/${dir}/lib"
+          cp target/portfolio-lens.jar "dist/${dir}/"
+          cp target/lib/*.jar "dist/${dir}/lib/"
+          cp LICENSE "dist/${dir}/"
+          {
+            sed -n '/^## Notice$/,/^## /p' README.md | sed '1d;$d'
+            echo
+            cat release/THIRD-PARTY.md
+          } > "dist/${dir}/NOTICE"
+          tar -C dist -czf "dist/${dir}.tar.gz" "${dir}"
+          (cd dist && sha256sum "${dir}.tar.gz" > "${dir}.tar.gz.sha256" && sha256sum -c "${dir}.tar.gz.sha256")
+
+      - name: Check the archive
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir check
+          tar -C check -xzf "dist/portfolio-lens-${VERSION}.tar.gz"
+          cd "check/portfolio-lens-${VERSION}"
+          ls
+          # without configuration the exit status is 64
+          status=0
+          java -jar portfolio-lens.jar check > ../check.log 2>&1 || status=$?
+          cat ../check.log
+          [ "${status}" -eq 64 ]
+          # the jar manifest carries the version that Lens shows in its log and page footer
+          jar xf portfolio-lens.jar META-INF/MANIFEST.MF
+          tr -d "\r" < META-INF/MANIFEST.MF | grep -qxF "Implementation-Version: ${VERSION}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: portfolio-lens-${{ steps.version.outputs.version }}
+          path: |
+            dist/portfolio-lens-*.tar.gz
+            dist/portfolio-lens-*.tar.gz.sha256
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: portfolio-lens-${{ needs.build.outputs.version }}
+          path: dist
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          archive="dist/portfolio-lens-${VERSION}.tar.gz"
+          base="https://github.com/${GITHUB_REPOSITORY}/blob/${TAG}/README.md"
+          fence='```'
+          {
+            echo "Portfolio Lens ${VERSION}"
+            echo
+            echo "## Notice"
+            echo
+            sed -n '/^## Notice$/,/^## /p' README.md | sed '1,2d;$d'
+            echo "## Use"
+            echo
+            echo "Requires a Java 21 runtime. Verify the download with sha256sum -c:"
+            echo
+            echo "${fence}"
+            cat "${archive}.sha256"
+            echo "${fence}"
+            echo
+            echo "Configuration and the contract for running a release: [Configuration](${base}#configuration) and [Releases](${base}#releases)."
+            case "${TAG}" in
+              *-rc.*)
+                echo
+                echo "This release candidate is for testing the server integration."
+                ;;
+            esac
+          } > notes.md
+          flags=()
+          case "${TAG}" in
+            *-rc.*) flags+=(--prerelease) ;;
+          esac
+          gh release create "${TAG}" "${archive}" "${archive}.sha256" \
+            --verify-tag --title "Portfolio Lens ${VERSION}" --notes-file notes.md "${flags[@]}"

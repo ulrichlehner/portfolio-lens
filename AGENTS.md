@@ -128,6 +128,19 @@ Portfolio Lens follows [Semantic Versioning 2.0.0](https://semver.org/).
   `-SNAPSHOT`, for example `0.2.0-SNAPSHOT`. Lens shows it in its log and in the page footer.
 - A release is the commit on `main` tagged `vMAJOR.MINOR.PATCH`, for example `v0.1.0`, with the
   `-SNAPSHOT` suffix removed. Tag and publish only when the user authorizes it.
+- A release candidate is tagged `vMAJOR.MINOR.PATCH-rc.N`, for example `v1.0.0-rc.1`, and is
+  published as a prerelease for testing an integration.
+- Every version change is a commit merged through a pull request, because `main` is protected:
+  `chore(release): 1.0.0-rc.1` sets the version, and after the merge the user tags the merge commit.
+  `chore(release): back to 1.0.0-SNAPSHOT` follows directly after a candidate. After a final
+  release, `chore(release): 1.0.1-SNAPSHOT` sets the next planned version (patch by default, raised
+  by the first `feat` or breaking commit).
+- Pushing a tag `v*` starts `.github/workflows/release.yml`. It fails unless the commit is on `main`
+  and the tag equals the `pom.xml` version, runs the tests, and publishes
+  `portfolio-lens-<version>.tar.gz` with a `.sha256` file. A manual run of the workflow on any
+  branch is a dry run that creates no tag and no release. Every jar in `target/lib/` must be listed
+  in `release/THIRD-PARTY.md`, and the README section "Notice" is copied into the archive and the
+  release notes, so keep both.
 - The public interface that the version describes: the `lens` commands and options, the `LENS_*`
   settings and their meaning, the exit statuses, the fields of `status.json`, and the cache and
   state in `LENS_CACHE_DIR` (a release must read the data of the previous release or rebuild it by

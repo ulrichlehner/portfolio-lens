@@ -130,6 +130,8 @@ java -jar portfolio-lens.jar run     # one complete run
 
 A failed run leaves the previous page in place and records the failure in `status.json`.
 
+To run a published release instead of a build from source, see [Releases](#releases).
+
 Each run logs one line with its provider and register requests by type (fund composition, company
 profile, classification search, revenue split, GLEIF register) and outcome (found, not found,
 failed). A lookup that fails waits before its retry, from one hour up to a week, so a company the
@@ -225,6 +227,44 @@ debugger and work only in the dev container; they keep their cache in `scratch/c
 A fresh Portfolio Performance workspace has no exchange rates until its first ECB download; until
 then Portfolio Performance converts foreign currencies 1:1, and Lens marks those holdings as
 missing conversion instead of using the values.
+
+## Releases
+
+Releases are published on the GitHub releases page of this repository. A version such as
+`1.0.0-rc.1` is a prerelease for testing an integration; `1.0.0` is a release. Each release has two
+files:
+
+- `portfolio-lens-<version>.tar.gz`
+- `portfolio-lens-<version>.tar.gz.sha256`
+
+Verify and unpack (Linux; on macOS use `shasum -a 256 -c`):
+
+```bash
+sha256sum -c portfolio-lens-<version>.tar.gz.sha256
+tar -xzf portfolio-lens-<version>.tar.gz
+```
+
+The archive has one directory `portfolio-lens-<version>/` with `portfolio-lens.jar`, `lib/` (the
+runtime library), `LICENSE` and `NOTICE` (the notice above and the third-party licenses). `lib/`
+must stay next to the jar. The checksum detects damaged downloads; the archive is not signed.
+
+What a program that runs a release, for example a container on a server, can rely on:
+
+- It needs a Java 21 runtime, for example the image `eclipse-temurin:21-jre`, and runs
+  `java -jar portfolio-lens.jar check` and `java -jar portfolio-lens.jar run` as described in
+  [Commands and exit statuses](#commands-and-exit-statuses). The exit statuses are 0, 64, 69, 70
+  and 73.
+- Configuration is only through the `LENS_*` settings in [Configuration](#configuration), as
+  environment variables or a `--config` file. Secrets are never passed as arguments.
+- Provider data needs `LENS_EULERPOOL_API_KEY` and `LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED=true`;
+  with the key alone, `check` fails with status 64.
+- Portfolio Performance's REST API must be reachable at `127.0.0.1:5712` on the loopback interface
+  of the process, so the container shares Portfolio Performance's network namespace or uses a
+  forwarder that keeps the `Host` header.
+- `LENS_OUTPUT_DIR` receives `index.html` and `status.json`; monitor `status.json`. `LENS_CACHE_DIR`
+  holds the cache and the run state. Both must be persistent directories. Only one run at a time
+  uses a cache directory; a lock file guards it, and a second run exits with status 0.
+- A release reads the cache of the previous release or rebuilds it by itself.
 
 ## Versions
 

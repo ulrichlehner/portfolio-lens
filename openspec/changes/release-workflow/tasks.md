@@ -19,12 +19,15 @@ is on `docs/release-workflow`).
 - [x] 3.1 `scripts/dev.sh test` passes; `scripts/openspec validate release-workflow --strict` and `scripts/openspec validate --specs --strict` pass. Done: 471 tests, 0 failures; both validations pass.
 - [x] 3.2 Privacy scan of the diff (no real values, ISINs, names, home paths, tokens or keys). Done.
 - [x] 3.3 Commit with Conventional Commits (`ci(release): ...`, `docs: ...`), push `feature/release-workflow` and open a pull request into `main`. Done (pull request opened).
-- [ ] 3.4 Dry run: start the workflow manually on the pull request branch (`gh workflow run release.yml --ref feature/release-workflow`), download the artifact, check the archive layout, `sha256sum -c` and that no tag or release was created. Record the run URL here. Open: needs the workflow on the default branch, the orchestrator runs it after the merge.
-- [ ] 3.5 After review, merge the pull request (user's decision) and archive this change. Open.
+- [x] 3.4 Dry run: start the workflow manually on the pull request branch (`gh workflow run release.yml --ref feature/release-workflow`), download the artifact, check the archive layout, `sha256sum -c` and that no tag or release was created. Record the run URL here. Open: needs the workflow on the default branch, the orchestrator runs it after the merge.
+  - Evidence (2026-11-05): after the merge, `gh workflow run release.yml --ref main` (run 42043776395): job "Build archive" passed, "Publish release" skipped; the downloaded artifact `portfolio-lens-0.1.0-SNAPSHOT.tar.gz` passes `shasum -a 256 -c` and contains `portfolio-lens.jar`, `lib/` (Gson and its annotations), `LICENSE` and `NOTICE`; no tag and no release exist afterwards. Ran on `main` because a manual run needs the workflow on the default branch.
+- [x] 3.5 After review, merge the pull request (user's decision) and archive this change.
+  - Evidence (2026-11-05): pull request 8 merged by the user. The change is archived after the final release (group 5).
 
 ## 4. Release candidate (each step needs the user's authorization)
 
-- [ ] 4.1 After `page-app-link` is merged: pull request `chore(release): 1.0.0-rc.1` setting `pom.xml` to `1.0.0-rc.1`; merge after CI passes.
+- [x] 4.1 After `page-app-link` is merged: pull request `chore(release): 1.0.0-rc.1` setting `pom.xml` to `1.0.0-rc.1`; merge after CI passes.
+  - Evidence (2026-11-05): this pull request sets `pom.xml` to `1.0.0-rc.1`; the user authorized the release candidate.
 - [ ] 4.2 Tag the merge commit `v1.0.0-rc.1` and push the tag.
 - [ ] 4.3 Verify the release: marked as prerelease, both assets present, `sha256sum -c` passes on a downloaded copy, the unpacked jar reports `1.0.0-rc.1` in `java -jar portfolio-lens.jar check`, the notes contain the notice.
 - [ ] 4.4 Pull request `chore(release): back to 1.0.0-SNAPSHOT`.

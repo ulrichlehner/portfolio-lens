@@ -314,7 +314,8 @@ public final class LensRun
             var input = new PageInput(clock.instant(), clock.getZone(), model.file().label(), result, attributes,
                             dataStatus, banner, providerState(), FundOverlap.of(result), scope.accountCash(),
                             scope.unsupportedHoldingTypes(), pendingLookups, nextAttempt, Version.get(),
-                            settings.providerEnabled() ? Optional.of(session.budget().usage()) : Optional.empty());
+                            settings.providerEnabled() ? Optional.of(session.budget().usage()) : Optional.empty(),
+                            settings.appLink().map(link -> new PageInput.AppLink(link.url(), link.label())));
             try
             {
                 PageWriter.write(settings.outputDir().orElseThrow(), input);

@@ -176,7 +176,14 @@ public final class PageWriter
                         e(input.fileLabel()), " &middot; ", e(company.summary().asOfText()), " &middot; Generated ",
                         "<time id=\"generated\" datetime=\"", input.generatedAt().toString(), "\">",
                         e(time(input.generatedAt())), "</time></p>",
+                        appLink(),
                         "<p id=\"stale\" class=\"stale\" hidden></p></header>\n");
+    }
+
+    private String appLink()
+    {
+        return input.appLink().map(link -> "<p class=\"app-link\"><a href=\"" + e(link.url()) + "\" rel=\"noopener\">"
+                        + e(link.label()) + "</a></p>").orElse("");
     }
 
     private void banner()

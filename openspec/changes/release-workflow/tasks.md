@@ -28,9 +28,12 @@ is on `docs/release-workflow`).
 
 - [x] 4.1 After `page-app-link` is merged: pull request `chore(release): 1.0.0-rc.1` setting `pom.xml` to `1.0.0-rc.1`; merge after CI passes.
   - Evidence (2026-11-05): this pull request sets `pom.xml` to `1.0.0-rc.1`; the user authorized the release candidate.
-- [ ] 4.2 Tag the merge commit `v1.0.0-rc.1` and push the tag.
-- [ ] 4.3 Verify the release: marked as prerelease, both assets present, `sha256sum -c` passes on a downloaded copy, the unpacked jar reports `1.0.0-rc.1` in `java -jar portfolio-lens.jar check`, the notes contain the notice.
-- [ ] 4.4 Pull request `chore(release): back to 1.0.0-SNAPSHOT`.
+- [x] 4.2 Tag the merge commit `v1.0.0-rc.1` and push the tag.
+  - Evidence (2026-11-05): pull request 9 merged by the user (merge commit 01044ca); the user created and pushed the annotated tag `v1.0.0-rc.1`.
+- [x] 4.3 Verify the release: marked as prerelease, both assets present, `sha256sum -c` passes on a downloaded copy, the unpacked jar reports `1.0.0-rc.1` in `java -jar portfolio-lens.jar check`, the notes contain the notice.
+  - Evidence (2026-11-05): release run 42045076457 passed (build and publish). The release "Portfolio Lens 1.0.0-rc.1" is a prerelease with `portfolio-lens-1.0.0-rc.1.tar.gz` and its `.sha256`; a downloaded copy passes `shasum -a 256 -c`; the jar manifest has `Implementation-Version: 1.0.0-rc.1`; the notes contain the README notice.
+- [x] 4.4 Pull request `chore(release): back to 1.0.0-SNAPSHOT`.
+  - Evidence (2026-11-05): this pull request sets `pom.xml` back to `1.0.0-SNAPSHOT`.
 
 ## 5. Final release (only after the server integration is verified)
 

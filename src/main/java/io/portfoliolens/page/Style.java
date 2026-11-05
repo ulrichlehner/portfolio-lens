@@ -51,6 +51,7 @@ final class Style
                     .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,600px),1fr));gap:16px;margin:12px 0}
                     figure{margin:0}figcaption{font-weight:600;margin-bottom:4px}
 .chart-legend{margin:6px 0 0;font-size:12px;color:var(--fg);display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.chart-note{margin:4px 0 0;font-size:12px;color:var(--muted)}
 .legend-caption{color:var(--muted)}.gradient{display:inline-block;width:120px;height:11px;border-radius:2px}
                     svg.treemap,svg.bars{width:100%;height:auto;display:block}svg.matrix{max-width:100%;height:auto;display:block}
                     .tm-bg,.tm-group{fill:var(--tm-bg)}.tm-group{stroke:var(--bg);stroke-width:1.5}

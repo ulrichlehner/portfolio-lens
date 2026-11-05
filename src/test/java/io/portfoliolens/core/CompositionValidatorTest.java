@@ -382,15 +382,76 @@ public class CompositionValidatorTest
     }
 
     @Test
-    public void testNegativeNetWithoutIdentifierRejects()
+    public void testSmallNegativeNetWithoutIdentifierIsNetCash()
     {
         var source = verified(identified("a", "0.9"), unidentified("Synthetic cash", "0.0001"),
                         unidentified("Synthetic forward", "-0.0002"));
 
         var result = validator.validate(source);
-        assertRejected(result, Reason.NEGATIVE_WEIGHT, Optional.empty());
-        assertEquals(List.of(new Diagnostic(Reason.NEGATIVE_WEIGHT, Optional.empty())), result.diagnostics());
+        assertTrue(result.isUsable());
+        assertEquals(List.of(new Diagnostic(Reason.NET_CASH, Optional.empty())), result.diagnostics());
+        assertEquals(1, result.rows().size());
+        assertEquals(new BigDecimal("0.9"), result.rows().get(0).weight());
+        assertEquals(new BigDecimal("-0.0001"), result.netCash().orElseThrow().weight());
+        assertEquals(2, result.netCash().orElseThrow().sourceIndex());
+        assertEquals(new BigDecimal("0.1001"), result.shortfall().orElseThrow());
+        assertTrue(validator.validateArithmetic(source).isUsable());
+    }
+
+    /**
+     * A fund whose identified holdings sum to 103% and whose cash and currency rows without an
+     * identifier net to -3%: the holdings keep their real weights, the rows become net cash.
+     */
+    @Test
+    public void testIdentifiedRowsAboveOneBalancedByNetCash()
+    {
+        var source = verified(identified("a", "0.6"), identified("b", "0.43"), unidentified("USD CASH", "-0.05"),
+                        unidentified("INR/USD", "-0.001"), unidentified("EUR CASH", "0.021"));
+
+        var result = validator.validate(source);
+        assertTrue(result.isUsable());
+        assertTrue(result.diagnostics().contains(new Diagnostic(Reason.NET_CASH, Optional.empty())));
+        assertEquals(List.of(new BigDecimal("0.6"), new BigDecimal("0.43")),
+                        result.rows().stream().map(r -> r.weight()).toList());
+        assertEquals(new BigDecimal("-0.030"), result.netCash().orElseThrow().weight());
+        assertEquals(2, result.netCash().orElseThrow().sourceIndex());
+        assertEquals(0, result.shortfall().orElseThrow().signum());
+        assertEquals(5, result.source().constituents().size());
+    }
+
+    @Test
+    public void testNetCashAtTheLimitIsUsable()
+    {
+        var source = verified(identified("a", "1.1"), unidentified("Synthetic cash", "-0.1"));
+        var result = validator.validate(source);
+        assertTrue(result.isUsable());
+        assertEquals(new BigDecimal("-0.1"), result.netCash().orElseThrow().weight());
+    }
+
+    @Test
+    public void testNegativeNetBeyondTheLimitRejects()
+    {
+        var source = verified(identified("a", "1.12"), unidentified("Synthetic cash", "-0.125"),
+                        unidentified("Synthetic forward", "0.005"));
+
+        var result = validator.validate(source);
+        assertRejected(result, Reason.NET_CASH_BEYOND_LIMIT, Optional.empty());
+        assertEquals(List.of(new Diagnostic(Reason.NET_CASH_BEYOND_LIMIT, Optional.empty())), result.diagnostics());
+        assertTrue(result.netCash().isEmpty());
         assertFalse(validator.validateArithmetic(source).isUsable());
+    }
+
+    @Test
+    public void testRoundingExcessWithNetCashReconcilesToOne()
+    {
+        var source = verified(identified("a", "0.6"), identified("b", "0.4300005"), unidentified("USD CASH", "-0.03"));
+        var result = validator.validate(source);
+
+        assertTrue(result.isUsable());
+        assertEquals(BigDecimal.ZERO, result.shortfall().orElseThrow());
+        var rows = result.rows().stream().map(r -> r.weight()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        assertEquals(0, rows.add(result.netCash().orElseThrow().weight()).compareTo(BigDecimal.ONE));
+        assertEquals("0.4300005", source.constituents().get(1).weight().orElseThrow());
     }
 
     @Test
@@ -458,9 +519,9 @@ public class CompositionValidatorTest
     }
 
     @Test
-    public void testOnlyNettingDiagnosticIsNotFatal()
+    public void testOnlyNettingAndNetCashDiagnosticsAreNotFatal()
     {
         for (var reason : Reason.values())
-            assertEquals(reason != Reason.NETTED_IDENTIFIERLESS_ROWS, reason.isFatal());
+            assertEquals(reason != Reason.NETTED_IDENTIFIERLESS_ROWS && reason != Reason.NET_CASH, reason.isFatal());
     }
 }

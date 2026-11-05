@@ -289,13 +289,20 @@ public final class LookThroughViewPresenter
             if (totalWidth <= 0)
                 return widths;
 
+            // With net cash of funds the positive segments add up to more than the
+            // securities value; the bar shows them relative to their own sum, so it
+            // never runs over. Shares in texts stay relative to the securities value.
+            var sum = segments.stream().filter(Segment::nonzero).map(Segment::fraction)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+            var scale = sum.compareTo(BigDecimal.ONE) > 0 ? BigDecimal.ONE.divide(sum, SHARE_SCALE, RoundingMode.HALF_UP)
+                            : BigDecimal.ONE;
             int used = 0;
             for (int ii = 0; ii < widths.length; ii++)
             {
                 var segment = segments.get(ii);
                 if (!segment.nonzero())
                     continue;
-                int width = segment.fraction().multiply(BigDecimal.valueOf(totalWidth))
+                int width = segment.fraction().multiply(scale).multiply(BigDecimal.valueOf(totalWidth))
                                 .setScale(0, RoundingMode.HALF_UP).intValue();
                 widths[ii] = Math.max(minimumWidth, width);
                 used += widths[ii];
@@ -493,6 +500,10 @@ public final class LookThroughViewPresenter
         {
             rows.add(categoryRow(keys, result, Category.UNGROUPED_EQUITY, denominatorAmount));
             rows.add(categoryRow(keys, result, Category.CASH_OR_OTHER, denominatorAmount));
+            // the negative net cash of funds, only when present: companies are shown at their
+            // real values, and this row reconciles them with the securities value
+            if (result.value(Category.NET_CASH).signum() != 0)
+                rows.add(categoryRow(keys, result, Category.NET_CASH, denominatorAmount));
             rows.add(categoryRow(keys, result, Category.UNRESOLVED, denominatorAmount));
         }
 
@@ -1279,6 +1290,7 @@ public final class LookThroughViewPresenter
             case UNGROUPED_EQUITY -> Texts.LookThroughCategoryUngroupedEquity;
             case UNRESOLVED -> Texts.LookThroughCategoryUnresolved;
             case UNVERIFIED_HOLDING -> Texts.LookThroughCategoryUnverified;
+            case NET_CASH -> Texts.LookThroughCategoryNetCash;
             default -> throw new IllegalArgumentException(category.name());
         };
     }

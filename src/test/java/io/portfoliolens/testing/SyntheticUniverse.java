@@ -38,6 +38,7 @@ public final class SyntheticUniverse implements HttpGet
     private volatile int failEvery;
     private volatile String alwaysFailing = "";
     private volatile int outside;
+    private final Map<String, Double> netCash = new java.util.concurrent.ConcurrentHashMap<>();
     private final java.util.Set<String> awkward = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final java.util.Set<String> malformedHoldings = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final Map<String, AtomicInteger> requestsByPath = new LinkedHashMap<>();
@@ -103,6 +104,16 @@ public final class SyntheticUniverse implements HttpGet
         for (int i = 0; i < count; i++)
             direct.add(companies + outside + i);
         outside += count;
+    }
+
+    /**
+     * The composition of this fund reports identified rows that sum to 100% minus {@code percent}
+     * and rows without identifier ("USD CASH", "INR/USD", "EUR CASH") that net to {@code percent},
+     * for example -3 for identified rows of 103%.
+     */
+    public void netCash(String fundIsin, double percent)
+    {
+        netCash.put(fundIsin, percent);
     }
 
     /** The fund composition request for this code answers with a body that is not JSON. */
@@ -226,14 +237,28 @@ public final class SyntheticUniverse implements HttpGet
             double total = 0;
             for (int i = 0; i < members.size(); i++)
                 total += 1.0 / (i + 1);
+            var net = netCash.getOrDefault(isin, 0.0);
             for (int i = 0; i < members.size(); i++)
             {
                 var c = members.get(i);
                 rows.add("{\"etf_symbol\":\"" + isin + "\",\"symbol\":\"S" + c + "\",\"name\":\"" + companyName(c)
                                 + "\",\"isin\":\"" + companyIsin(c) + "\",\"cusip\":null,\"percent\":"
-                                + String.format(Locale.ROOT, "%.10f", 100.0 / (i + 1) / total)
+                                + String.format(Locale.ROOT, "%.10f", (100.0 - net) / (i + 1) / total)
                                 + ",\"share\":1,\"value\":1,\"assetType\":null,\"logo\":null,"
                                 + "\"updated_at\":\"2026-07-01T00:00:00Z\"}");
+            }
+            if (net != 0)
+            {
+                // cash and currency rows without identifier: one large negative, one small
+                // negative forward and one positive balance, netting to the configured percent
+                var parts = new double[] { net - 0.5 + 0.1, -0.1, 0.5 };
+                var labels = new String[] { "USD CASH", "INR/USD", "EUR CASH" };
+                for (int i = 0; i < parts.length; i++)
+                    rows.add("{\"etf_symbol\":\"" + isin + "\",\"symbol\":null,\"name\":\"" + labels[i]
+                                    + "\",\"isin\":null,\"cusip\":null,\"percent\":"
+                                    + String.format(Locale.ROOT, "%.10f", parts[i])
+                                    + ",\"share\":1,\"value\":1,\"assetType\":null,\"logo\":null,"
+                                    + "\"updated_at\":\"2026-07-01T00:00:00Z\"}");
             }
             return RecordingHttp.json(200, "[" + String.join(",", rows) + "]");
         }

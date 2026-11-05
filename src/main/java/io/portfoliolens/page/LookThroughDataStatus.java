@@ -118,6 +118,8 @@ public final class LookThroughDataStatus
         FAILED,
         /** Validation rejected the composition because of negative weights. */
         REJECTED_NEGATIVE_WEIGHT,
+        /** Validation rejected the composition because its net cash is below the limit. */
+        REJECTED_NET_CASH_BEYOND_LIMIT,
         /** Validation rejected the composition because its total exceeds one. */
         REJECTED_TOTAL_ABOVE_ONE,
         /** Validation rejected the composition because of missing or invalid weights. */
@@ -204,11 +206,13 @@ public final class LookThroughDataStatus
                     Optional<CompositionResult.Status> latestAttempt, String attemptText, Optional<Instant> retryAfter,
                     Optional<String> retryText, boolean refreshPending, FundRef reference, Health health,
                     Optional<String> retrievedDateText, StatusKind kind, String statusText,
-                    Optional<String> explanation, boolean usableData, Optional<String> nettingText)
+                    Optional<String> explanation, boolean usableData, Optional<String> nettingText,
+                    Optional<String> netCashText)
     {
         public FundStatus
         {
             Objects.requireNonNull(nettingText);
+            Objects.requireNonNull(netCashText);
             Objects.requireNonNull(reference);
             Objects.requireNonNull(health);
             Objects.requireNonNull(kind);
@@ -256,6 +260,7 @@ public final class LookThroughDataStatus
             sourceDataText.ifPresent(lines::add);
             denominatorText.ifPresent(lines::add);
             nettingText.ifPresent(lines::add);
+            netCashText.ifPresent(lines::add);
             lines.add(providerAccountText);
             return String.join("\n", lines);
         }
@@ -466,7 +471,7 @@ public final class LookThroughDataStatus
                         sourceDataText, denominatorText, latestAttempt, attemptText, facts.retryAfter(), retryText,
                         facts.refreshPending(), new FundRef(facts.account(), facts.fund()), health(facts),
                         retrievedDateText, kind, statusText(clock, kind, facts.retryAfter()), explanation(kind),
-                        hasUsableData(facts), nettingText(facts));
+                        hasUsableData(facts), nettingText(facts), netCashText(facts));
     }
 
     /**
@@ -474,15 +479,33 @@ public final class LookThroughDataStatus
      * composition that the calculation uses was netted. The remainder stays
      * unresolved, so this is a hint, not a rejection.
      */
-    private static Optional<String> nettingText(FundFacts facts)
+    private static Optional<CompositionValidationResult> used(FundFacts facts)
     {
         var validator = new CompositionValidator();
-        var used = facts.retained().map(validator::validate)
-                        .or(() -> facts.unverifiedComposition().map(validator::validateArithmetic));
-        return used.filter(CompositionValidationResult::isUsable)
-                        .filter(result -> result.diagnostics().stream().anyMatch(diagnostic -> diagnostic
+        return facts.retained().map(validator::validate)
+                        .or(() -> facts.unverifiedComposition().map(validator::validateArithmetic))
+                        .filter(CompositionValidationResult::isUsable);
+    }
+
+    /** The fund's net cash share, for example "Includes net cash -3.00% of the fund". */
+    private static Optional<String> netCashText(FundFacts facts)
+    {
+        return used(facts).flatMap(CompositionValidationResult::netCash)
+                        .map(netCash -> MessageFormat.format(Texts.LookThroughStatusNetCash,
+                                        Values.Percent2.format(netCash.weight().doubleValue())));
+    }
+
+    private static Optional<String> nettingText(FundFacts facts)
+    {
+        return used(facts).filter(result -> result.diagnostics().stream().anyMatch(diagnostic -> diagnostic
                                         .reason() == CompositionValidationResult.Reason.NETTED_IDENTIFIERLESS_ROWS))
                         .map(result -> Texts.LookThroughStatusNettedIdentifierlessRows);
+    }
+
+    /** The net cash limit as a positive percentage, for example "10 %". */
+    private static String netCashLimitText()
+    {
+        return Values.Percent.format(CompositionValidator.NET_CASH_LIMIT.negate().doubleValue());
     }
 
     /**
@@ -507,7 +530,8 @@ public final class LookThroughDataStatus
     {
         return switch (kind)
         {
-            case REJECTED_NEGATIVE_WEIGHT, REJECTED_TOTAL_ABOVE_ONE, REJECTED_INVALID_WEIGHT, REJECTED, MALFORMED -> true;
+            case REJECTED_NEGATIVE_WEIGHT, REJECTED_NET_CASH_BEYOND_LIMIT, REJECTED_TOTAL_ABOVE_ONE,
+                            REJECTED_INVALID_WEIGHT, REJECTED, MALFORMED -> true;
             default -> false;
         };
     }
@@ -624,8 +648,8 @@ public final class LookThroughDataStatus
     {
         return switch (kind)
         {
-            case FAILED, MALFORMED, RETAINED_AFTER_FAILURE, REJECTED_NEGATIVE_WEIGHT, REJECTED_TOTAL_ABOVE_ONE,
-                            REJECTED_INVALID_WEIGHT, REJECTED -> true;
+            case FAILED, MALFORMED, RETAINED_AFTER_FAILURE, REJECTED_NEGATIVE_WEIGHT, REJECTED_NET_CASH_BEYOND_LIMIT,
+                            REJECTED_TOTAL_ABOVE_ONE, REJECTED_INVALID_WEIGHT, REJECTED -> true;
             default -> false;
         };
     }
@@ -765,6 +789,8 @@ public final class LookThroughDataStatus
                         .map(CompositionValidationResult.Diagnostic::reason).collect(Collectors.toSet());
         if (reasons.contains(CompositionValidationResult.Reason.NEGATIVE_WEIGHT))
             return StatusKind.REJECTED_NEGATIVE_WEIGHT;
+        if (reasons.contains(CompositionValidationResult.Reason.NET_CASH_BEYOND_LIMIT))
+            return StatusKind.REJECTED_NET_CASH_BEYOND_LIMIT;
         if (reasons.contains(CompositionValidationResult.Reason.TOTAL_EXCEEDS_ONE))
             return StatusKind.REJECTED_TOTAL_ABOVE_ONE;
         if (reasons.contains(CompositionValidationResult.Reason.MISSING_WEIGHT)
@@ -783,6 +809,8 @@ public final class LookThroughDataStatus
                             retryTimeText(clock, at))).orElse(Texts.LookThroughStatusRateLimited);
             case FAILED -> Texts.LookThroughStatusFailed;
             case REJECTED_NEGATIVE_WEIGHT -> Texts.LookThroughStatusRejectedNegativeWeight;
+            case REJECTED_NET_CASH_BEYOND_LIMIT -> MessageFormat.format(Texts.LookThroughStatusRejectedNetCash,
+                            netCashLimitText());
             case REJECTED_TOTAL_ABOVE_ONE -> Texts.LookThroughStatusRejectedTotalAboveOne;
             case REJECTED_INVALID_WEIGHT -> Texts.LookThroughStatusRejectedInvalidWeight;
             case REJECTED -> Texts.LookThroughStatusRejected;
@@ -811,6 +839,8 @@ public final class LookThroughDataStatus
         return switch (kind)
         {
             case REJECTED_NEGATIVE_WEIGHT -> Optional.of(Texts.LookThroughStatusExplainNegativeWeight);
+            case REJECTED_NET_CASH_BEYOND_LIMIT -> Optional.of(MessageFormat.format(Texts.LookThroughStatusExplainNetCash,
+                            netCashLimitText()));
             case REJECTED_TOTAL_ABOVE_ONE -> Optional.of(Texts.LookThroughStatusExplainTotalAboveOne);
             case REJECTED_INVALID_WEIGHT -> Optional.of(Texts.LookThroughStatusExplainInvalidWeight);
             case REJECTED -> Optional.of(Texts.LookThroughStatusExplainRejected);

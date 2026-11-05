@@ -24,6 +24,7 @@ import com.google.gson.JsonParser;
 
 import io.portfoliolens.core.CompanyEnrichmentService;
 import io.portfoliolens.core.CompositionRefreshCoordinator.Attempt;
+import io.portfoliolens.core.CompositionValidator;
 import io.portfoliolens.core.CompositionRequestBudget;
 import io.portfoliolens.core.CompositionRequestBudget.AccountSnapshot;
 import io.portfoliolens.core.CompositionRequestBudget.Charge;
@@ -48,6 +49,8 @@ public final class RunState
     private Optional<Instant> nextDueAt = Optional.empty();
     private Map<Map<String, String>, LookThroughSession.LookupBackoff> lookupBackoff = new HashMap<>();
     private List<CompanyEnrichmentService.FailedLookup> failedLookups = List.of();
+    /** Version of the composition validation rules this state was written under; 1 before it was recorded. */
+    private int validationRules = CompositionValidator.RULES_VERSION;
     private byte[] salt;
 
     private RunState(byte[] salt)
@@ -125,6 +128,7 @@ public final class RunState
                 }
                 state.failedLookups = List.copyOf(failed);
             }
+            state.validationRules = json.has("validationRules") ? json.get("validationRules").getAsInt() : 1;
             state.nextDueAt = json.has("nextDueAt") ? Optional.of(Instant.parse(json.get("nextDueAt").getAsString()))
                             : Optional.empty();
             return Optional.of(state);
@@ -187,6 +191,7 @@ public final class RunState
             backoffJson.add(object);
         });
         json.add("lookupBackoff", backoffJson);
+        json.addProperty("validationRules", validationRules);
         var failedJson = new JsonArray();
         for (var lookup : failedLookups)
         {
@@ -258,6 +263,17 @@ public final class RunState
     public void setFailedLookups(List<CompanyEnrichmentService.FailedLookup> failedLookups)
     {
         this.failedLookups = List.copyOf(failedLookups);
+    }
+
+    /** Version of the composition validation rules of the run that wrote this state. */
+    public int validationRules()
+    {
+        return validationRules;
+    }
+
+    public void setValidationRules(int validationRules)
+    {
+        this.validationRules = validationRules;
     }
 
     /** When the next run has provider work even if its inputs are unchanged. */

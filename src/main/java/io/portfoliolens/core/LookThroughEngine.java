@@ -32,6 +32,9 @@ public final class LookThroughEngine
 {
     public static final int MAX_COMPOSITION_EDGES = 8;
 
+    /** Label of the net cash contribution; never the label of a source row. */
+    public static final String NET_CASH_LABEL = "Net cash";
+
     public LookThroughResult calculate(SecuritiesValuation valuation,
                     Map<HeldInstrument, InstrumentResolution> ownedResolutions,
                     Map<CompositionInstrument, InstrumentResolution> resolutions,
@@ -167,6 +170,17 @@ public final class LookThroughEngine
                 nextPath.add(new Edge(validated, row.sourceIndex(), row.weight(), childResolution));
                 visit(origin, originResolution, child, childResolution, value.multiply(row.weight()), nextPath,
                                 nextAncestors);
+            }
+            // The fund's negative net cash keeps the holding reconciled: the
+            // identified rows sum to more than one by exactly this amount.
+            if (validated.netCash().isPresent())
+            {
+                var netCash = validated.netCash().orElseThrow();
+                var nextPath = new ArrayList<>(path);
+                nextPath.add(new Edge(validated, netCash.sourceIndex(), netCash.weight(), Optional.empty()));
+                add(origin, originResolution, new CompositionInstrument(NET_CASH_LABEL, Map.of()), Optional.empty(),
+                                value.multiply(netCash.weight()), nextPath, Category.NET_CASH, Reason.NET_CASH_OF_FUNDS,
+                                Optional.empty());
             }
             var shortfall = validated.shortfall().orElseThrow();
             if (shortfall.signum() > 0)

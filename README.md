@@ -39,6 +39,14 @@ stops provider work after `LENS_RUN_TIMEOUT`, a first fill usually spreads over 
 are filled largest first, and nothing resolved in an earlier run is lost while the rest follows.
 `status.json` and the page show the units used.
 
+Some funds report holdings that add up to slightly more than 100%, balanced by negative cash and
+currency rows without a security identifier. Lens uses such a composition with its real weights
+when these rows net to at most -10% of the fund, and shows the net as "Net cash of funds" in the
+table, the summary and the fund's data status; the charts do not draw it and name it in a note. A
+larger negative net likely means leverage, and the fund stays unresolved. After upgrading to a
+version with this rule, the first run requests the compositions of funds that were rejected or
+failed before once more, instead of waiting for their 24-hour cadence.
+
 The page is one self-contained file. It loads nothing from the network, follows the light or dark
 system setting, and shows when it was generated. Grouping by country, region, sector, industry,
 currency and revenue region needs JavaScript; without it the company breakdown is shown.

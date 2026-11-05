@@ -85,6 +85,8 @@ the page or the status file.
 | `LENS_RUN_TIMEOUT` | `PT2M` | time limit for provider work in one run; the rest waits for the next run |
 | `LENS_CACHE_DIR` | `$XDG_CACHE_HOME/portfolio-lens`, else `~/.cache/portfolio-lens` | cache and run state |
 | `LENS_OUTPUT_DIR` | required for `run` | where `index.html` and `status.json` are written |
+| `LENS_APP_LINK_URL` | none | adds a link to this address in the page header; absolute `http` or `https` URL without user name or password. Lens never requests it. Example for a server with the page at `https://<host>/lens/`: `https://<host>/` |
+| `LENS_APP_LINK_LABEL` | `Portfolio Performance` | text of that link, at most 60 characters; needs `LENS_APP_LINK_URL` |
 | `LENS_LOG_LEVEL` | `INFO` | `FINE` adds one line per provider and register request (type, outcome, HTTP status, ISIN) and one per company lookup put on hold; JDK loggers stay at `INFO` |
 
 `true` and `false` are the only accepted values of the switches; anything else is an error.

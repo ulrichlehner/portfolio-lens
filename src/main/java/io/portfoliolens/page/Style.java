@@ -24,7 +24,9 @@ final class Style
                     h1{font-size:22px;margin:0}h2{font-size:15px;margin:0 0 6px}
                     .meta{color:var(--muted);margin:4px 0 0}
                     .stale{background:var(--warn-bg);border-left:4px solid var(--warn-line);padding:6px 10px;margin:8px 0 0}
-                    header.page{padding-bottom:12px}
+                    header.page{padding-bottom:12px;position:relative}
+                    .app-link{margin:4px 0 0}.app-link a{color:var(--fg)}
+                    @media (min-width:700px){.app-link{position:absolute;top:0;right:0;margin:0}}
                     .banner{padding:10px 14px;margin:0 0 12px;border-radius:6px}
                     .banner p{margin:2px 0}
                     .banner.warning{background:var(--warn-bg);border-left:5px solid var(--warn-line);font-weight:600}

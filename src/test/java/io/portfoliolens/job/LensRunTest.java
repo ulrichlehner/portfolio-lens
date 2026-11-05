@@ -180,6 +180,25 @@ public class LensRunTest
     }
 
     @Test
+    public void testChangedAppLinkOnUnchangedPortfolioWritesThePage() throws Exception
+    {
+        var first = env(true, true);
+        first.put(LensConfig.APP_LINK_URL, "https://example.org/one/");
+        run(first).run();
+        assertTrue(page().contains("href=\"https://example.org/one/\""));
+        now = now.plus(Duration.ofMinutes(5));
+
+        var second = env(true, true);
+        second.put(LensConfig.APP_LINK_URL, "https://example.org/two/");
+        assertEquals(LensRun.Result.WRITTEN, run(second).run());
+        assertTrue(page().contains("href=\"https://example.org/two/\""));
+        assertFalse(page().contains("example.org/one"));
+
+        now = now.plus(Duration.ofMinutes(5));
+        assertEquals(LensRun.Result.SKIPPED, run(second).run());
+    }
+
+    @Test
     public void testPriceChangeRecalculatesWithoutProviderRequests() throws Exception
     {
         run(env(true, true)).run();

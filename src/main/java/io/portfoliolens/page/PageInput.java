@@ -20,8 +20,13 @@ public record PageInput(Instant generatedAt, ZoneId zone, String fileLabel, Look
                 CompanyEnrichmentService.Snapshot attributes, LookThroughDataStatus.Model dataStatus,
                 Optional<LookThroughBanner.Kind> banner, ProviderState provider, FundOverlap overlap, Money accountCash,
                 List<String> unsupportedHoldingTypes, int pendingLookups, Optional<Instant> nextAttempt, String version,
-                Optional<CompositionRequestBudget.Usage> budget)
+                Optional<CompositionRequestBudget.Usage> budget, Optional<AppLink> appLink)
 {
+    /** A plain link back to the application, shown in the header. */
+    public record AppLink(String url, String label)
+    {
+    }
+
     /** Whether provider data is used, and if not, why. */
     public enum ProviderState
     {
@@ -49,5 +54,6 @@ public record PageInput(Instant generatedAt, ZoneId zone, String fileLabel, Look
         Objects.requireNonNull(nextAttempt);
         Objects.requireNonNull(version);
         Objects.requireNonNull(budget);
+        Objects.requireNonNull(appLink);
     }
 }

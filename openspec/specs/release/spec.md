@@ -1,7 +1,9 @@
 # release Specification
 
 ## Purpose
-TBD - created by archiving change release-workflow. Update Purpose after archive.
+How Portfolio Lens versions are released: a version tag on `main` builds and tests the code, packs a
+checksummed archive and publishes it as a GitHub release, so that deployments such as a server
+container can install an exact, verified version.
 
 ## Requirements
 

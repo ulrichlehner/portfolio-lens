@@ -55,6 +55,87 @@ public class LensConfigTest
         assertEquals(temp.resolve(".cache/portfolio-lens"), settings.cacheDir());
     }
 
+    private LensConfig.Result withLink(String url, String label)
+    {
+        var env = minimal();
+        if (url != null)
+            env.put(LensConfig.APP_LINK_URL, url);
+        if (label != null)
+            env.put(LensConfig.APP_LINK_LABEL, label);
+        return load(env);
+    }
+
+    @Test
+    public void testAppLinkIsOptional()
+    {
+        assertTrue(withLink(null, null).settings().orElseThrow().appLink().isEmpty());
+    }
+
+    @Test
+    public void testAppLinkWithDefaultAndCustomLabel()
+    {
+        var link = withLink("https://example.org/", null).settings().orElseThrow().appLink().orElseThrow();
+        assertEquals("https://example.org/", link.url());
+        assertEquals("Portfolio Performance", link.label());
+        var http = withLink("HTTP://example.org:8080/app", "  Back to PP ").settings().orElseThrow().appLink()
+                        .orElseThrow();
+        assertEquals("HTTP://example.org:8080/app", http.url());
+        assertEquals("Back to PP", http.label());
+    }
+
+    @Test
+    public void testAppLinkRejectsUnsafeOrIncompleteUrls()
+    {
+        for (var url : new String[] { "javascript:alert(1)", "ftp://example.org/", "/lens/", "example.org",
+                        "https://", "https://user:secret@example.org/", "https://user@example.org/", "https://exa mple.org/" })
+        {
+            var result = withLink(url, null);
+            assertTrue(result.settings().isEmpty(), url);
+            assertTrue(errors(result).contains(LensConfig.APP_LINK_URL), url);
+            assertFalse(errors(result).contains("secret") || errors(result).contains("alert"), errors(result));
+        }
+    }
+
+    @Test
+    public void testAppLinkLabelRules()
+    {
+        assertTrue(withLink("https://example.org/", "x".repeat(60)).settings().isPresent());
+        for (var label : new String[] { "x".repeat(61), "two\nlines", "two\rlines" })
+        {
+            var result = withLink("https://example.org/", label);
+            assertTrue(result.settings().isEmpty());
+            assertTrue(errors(result).contains(LensConfig.APP_LINK_LABEL), errors(result));
+        }
+        var orphan = withLink(null, "Back");
+        assertTrue(orphan.settings().isEmpty());
+        assertTrue(errors(orphan).contains(LensConfig.APP_LINK_LABEL), errors(orphan));
+    }
+
+    @Test
+    public void testAppLinkFromConfigFileLikeEnvironment() throws IOException
+    {
+        var file = Files.writeString(temp.resolve("lens.properties"),
+                        LensConfig.APP_LINK_URL + "=https://example.org/\n" + LensConfig.APP_LINK_LABEL + "=From file\n");
+        var env = minimal();
+        var fromFile = LensConfig.load(env, Optional.of(file), temp, true).settings().orElseThrow().appLink()
+                        .orElseThrow();
+        assertEquals("From file", fromFile.label());
+        env.put(LensConfig.APP_LINK_LABEL, "From environment");
+        assertEquals("From environment", LensConfig.load(env, Optional.of(file), temp, true).settings().orElseThrow()
+                        .appLink().orElseThrow().label());
+        var bad = Files.writeString(temp.resolve("bad.properties"), LensConfig.APP_LINK_URL + "=ftp://example.org/\n");
+        assertTrue(errors(LensConfig.load(minimal(), Optional.of(bad), temp, true)).contains(LensConfig.APP_LINK_URL));
+    }
+
+    @Test
+    public void testAppLinkIsPartOfTheFingerprint()
+    {
+        var none = withLink(null, null).settings().orElseThrow().fingerprintPart();
+        var one = withLink("https://example.org/", null).settings().orElseThrow().fingerprintPart();
+        var label = withLink("https://example.org/", "Other").settings().orElseThrow().fingerprintPart();
+        assertFalse(none.equals(one) || one.equals(label) || none.equals(label));
+    }
+
     @Test
     public void testMissingTokenAndOutputAreNamed()
     {

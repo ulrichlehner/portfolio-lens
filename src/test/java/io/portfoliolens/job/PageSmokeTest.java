@@ -37,6 +37,11 @@ public class PageSmokeTest
 
     private String render() throws Exception
     {
+        return render(Map.of());
+    }
+
+    private String render(Map<String, String> extra) throws Exception
+    {
         try (var pp = new FakePpServer(TOKEN).serveStandard())
         {
             var holdings = Fixtures.read("pp/holdings.json").replace("Synthetic German Share", HOSTILE.replace("\"", "\\\""));
@@ -44,10 +49,11 @@ public class PageSmokeTest
                             HOSTILE.replace("\"", "\\\""));
             pp.answer("/v1/files/" + FakePpServer.FILE_ID + "/holdings", 200, holdings);
             pp.answer("/v1/files/" + FakePpServer.FILE_ID + "/instruments", 200, instruments);
-            var env = Map.of(LensConfig.PP_URL, pp.baseUrl().toString(), LensConfig.PP_TOKEN, TOKEN,
+            var env = new java.util.HashMap<>(Map.of(LensConfig.PP_URL, pp.baseUrl().toString(), LensConfig.PP_TOKEN, TOKEN,
                             LensConfig.EULERPOOL_API_KEY, KEY, LensConfig.LOCAL_STORAGE_CONFIRMED, "true",
                             LensConfig.CACHE_DIR, temp.resolve("cache").toString(), LensConfig.OUTPUT_DIR,
-                            temp.resolve("out").toString());
+                            temp.resolve("out").toString()));
+            env.putAll(extra);
             var settings = LensConfig.load(env, Optional.empty(), temp, true).settings().orElseThrow();
             new LensRun(settings, new LensRun.Environment(new SyntheticProviders(),
                             Clock.fixed(Instant.parse("2026-07-20T08:00:00Z"), ZoneOffset.UTC), () -> {
@@ -135,5 +141,30 @@ public class PageSmokeTest
         {
             org.junit.jupiter.api.Assumptions.abort("Node.js not available: " + e.getMessage());
         }
+    }
+
+    @Test
+    public void testAppLinkInTheHeader() throws Exception
+    {
+        var page = render(Map.of(LensConfig.APP_LINK_URL, "https://example.org/?a=1&b=2", LensConfig.APP_LINK_LABEL,
+                        "PP & Co <test>"));
+        var link = "<p class=\"app-link\"><a href=\"https://example.org/?a=1&amp;b=2\" rel=\"noopener\">"
+                        + "PP &amp; Co &lt;test&gt;</a></p>";
+        assertTrue(page.contains(link), page.substring(0, Math.min(page.length(), 1500)));
+        var header = page.substring(page.indexOf("<header"), page.indexOf("</header>"));
+        assertTrue(header.contains(link));
+        assertFalse(header.contains("target="));
+        assertFalse(page.contains("PP & Co <test>"));
+        assertEquals(1, page.split("app-link\"").length - 1);
+        assertEquals(2, page.split("<script").length - 1, "the link adds no script");
+        assertFalse(page.contains("prefetch") || page.contains("<link "));
+    }
+
+    @Test
+    public void testNoAppLinkWithoutSetting() throws Exception
+    {
+        var page = render();
+        assertFalse(page.contains("<p class=\"app-link\">"));
+        assertTrue(page.contains("</time></p><p id=\"stale\""), "the header is unchanged");
     }
 }

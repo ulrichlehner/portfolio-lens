@@ -26,9 +26,10 @@ import io.portfoliolens.core.FundComposition.ExposureBasis;
  * close the provider evidence gate.</li>
  * </ul>
  * All rows share the snapshot's semantics and are never merged by name or ID.
- * The only exception: rows without a security identifier are netted into one
- * unresolved row when at least one of them is negative and their net is not.
- * Neither a reconciled sum nor completeness metadata verifies the declarations.
+ * The only exception: rows without a security identifier are netted when at
+ * least one of them is negative. A nonnegative net becomes one unresolved row;
+ * a negative net down to {@link #NET_CASH_LIMIT} is the fund's net cash and
+ * leaves the identified rows at their weights. Neither a reconciled sum nor completeness metadata verifies the declarations.
  */
 public final class CompositionValidator
 {
@@ -40,6 +41,21 @@ public final class CompositionValidator
      * unusable. Any further tolerance needs new evidence.
      */
     private static final BigDecimal ROUNDING_EXCESS_TOLERANCE = new BigDecimal("0.000001");
+
+    /**
+     * Lowest net of the rows without an identifier, as a fraction of NAV, that
+     * counts as the fund's net cash. Ordinary cash and currency forward balances
+     * of physical funds are a few percent; a larger negative balance likely
+     * means borrowing or derivative exposure, which stays unusable.
+     */
+    public static final BigDecimal NET_CASH_LIMIT = new BigDecimal("-0.10");
+
+    /**
+     * Version of the acceptance rules. Raise it when a change can make a
+     * composition usable that an earlier version rejected, so that runs
+     * evaluate such funds again (version 2: net cash within the limit).
+     */
+    public static final int RULES_VERSION = 2;
 
     public CompositionValidationResult validate(FundComposition source)
     {
@@ -117,11 +133,17 @@ public final class CompositionValidator
         // without an identifier. Only a negative net rejects. The rows are
         // never classified by name, and identified rows keep their weights.
         boolean netted = false;
+        Optional<CompositionValidationResult.NetCash> netCash = Optional.empty();
         if (negativeIdentifierless)
         {
-            if (identifierlessNet.signum() < 0)
+            if (identifierlessNet.compareTo(NET_CASH_LIMIT) < 0)
             {
-                diagnostics.add(new Diagnostic(Reason.NEGATIVE_WEIGHT, Optional.empty()));
+                diagnostics.add(new Diagnostic(Reason.NET_CASH_BEYOND_LIMIT, Optional.empty()));
+            }
+            else if (identifierlessNet.signum() < 0)
+            {
+                netCash = Optional.of(new CompositionValidationResult.NetCash(mostNegative(rows), identifierlessNet));
+                rows = netIdentifierless(rows, identifierlessNet);
             }
             else
             {
@@ -138,14 +160,21 @@ public final class CompositionValidator
                             semanticsVerified);
         if (netted)
             diagnostics.add(new Diagnostic(Reason.NETTED_IDENTIFIERLESS_ROWS, Optional.empty()));
+        if (netCash.isPresent())
+            diagnostics.add(new Diagnostic(Reason.NET_CASH, Optional.empty()));
         var shortfall = BigDecimal.ONE.subtract(total);
         if (shortfall.signum() < 0)
         {
             // Accepted publishing-rounding excess. Remove it proportionally so the
             // expansion reconciles exactly with the fund value. The correction is
             // at most one millionth and source rows stay unchanged; genuine
-            // overfull data was rejected above and is never rescaled.
-            var scale = BigDecimal.ONE.divide(total, MathContext.DECIMAL128);
+            // overfull data was rejected above and is never rescaled. With net
+            // cash the identified rows reconcile to one minus the net cash.
+            var target = BigDecimal.ONE.subtract(netCash.map(CompositionValidationResult.NetCash::weight)
+                            .orElse(BigDecimal.ZERO));
+            var rowsTotal = total.subtract(netCash.map(CompositionValidationResult.NetCash::weight)
+                            .orElse(BigDecimal.ZERO));
+            var scale = target.divide(rowsTotal, MathContext.DECIMAL128);
             var scaled = new ArrayList<ValidatedRow>(rows.size());
             var sum = BigDecimal.ZERO;
             for (var row : rows)
@@ -158,15 +187,25 @@ public final class CompositionValidator
             for (int index = 1; index < scaled.size(); index++)
                 if (scaled.get(index).weight().compareTo(scaled.get(largest).weight()) > 0)
                     largest = index;
-            var residual = BigDecimal.ONE.subtract(sum);
+            var residual = target.subtract(sum);
             var adjusted = scaled.get(largest);
             scaled.set(largest,
                             new ValidatedRow(adjusted.sourceIndex(), adjusted.source(), adjusted.weight().add(residual)));
             rows = scaled;
             shortfall = BigDecimal.ZERO;
         }
-        return new CompositionValidationResult(source, rows, Optional.of(shortfall), diagnostics,
+        return new CompositionValidationResult(source, rows, Optional.of(shortfall), netCash, diagnostics,
                         semanticsVerified);
+    }
+
+    /** Source index of the most negative row without an identifier. */
+    private static int mostNegative(List<ValidatedRow> rows)
+    {
+        ValidatedRow lowest = null;
+        for (var row : rows)
+            if (isIdentifierless(row.source()) && (lowest == null || row.weight().compareTo(lowest.weight()) < 0))
+                lowest = row;
+        return lowest.sourceIndex();
     }
 
     /** A row without any security identifier, independent of its label. */

@@ -23,6 +23,7 @@ import java.util.Set;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import io.portfoliolens.core.LookThroughContribution;
 import io.portfoliolens.page.LookThroughDataStatus.FundStatus;
 import io.portfoliolens.page.LookThroughDataStatus.Health;
 import io.portfoliolens.page.LookThroughGrouping.Grouping;
@@ -207,6 +208,8 @@ public final class PageWriter
         add("<section class=\"summary\"><dl>");
         item(Texts.LookThroughSummaryValue, s.valueText(), Optional.empty());
         item(Texts.LookThroughSummaryResolved, s.resolvedText().orElse("–"), Optional.of(model.completenessText()));
+        netCash(model).ifPresent(row -> item(Texts.LookThroughCategoryNetCash, amountAndShare(model, row),
+                        Optional.of(Texts.LookThroughNetCashTooltip)));
         item(Texts.LookThroughSummaryTopTen, s.topTenText().orElse("–"), Optional.empty());
         s.fundsText().ifPresent(text -> item(Texts.LookThroughSummaryFunds, text, Optional.empty()));
         s.effective().ifPresent(effective -> item(Texts.LookThroughSummaryConcentration, effective.text(),
@@ -228,6 +231,29 @@ public final class PageWriter
                             "</p>");
         add("<p>", e("Current valuations are combined with the composition dates shown in the data status."),
                         "</p></details></section>\n");
+    }
+
+    /** The net cash of funds row of the table, when the result has net cash. */
+    static Optional<CategoryRow> netCash(Model model)
+    {
+        return model.rows().stream().filter(CategoryRow.class::isInstance).map(CategoryRow.class::cast)
+                        .filter(row -> row.category() == LookThroughContribution.Category.NET_CASH).findFirst();
+    }
+
+    private static String amountAndShare(Model model, CategoryRow row)
+    {
+        return LookThroughViewPresenter.formatAmount(row.value(), model.currencyCode())
+                        + row.shareText().map(text -> " (" + text + ")").orElse("");
+    }
+
+    /** The note under a chart that does not draw the net cash of funds. */
+    private void netCashNote(Model model)
+    {
+        netCash(model).ifPresent(row -> add("<p class=\"chart-note\">",
+                        e(java.text.MessageFormat.format(Texts.LookThroughNetCashNotShown,
+                                        LookThroughViewPresenter.formatAmount(row.value(), model.currencyCode()),
+                                        row.shareText().orElse("–"))),
+                        "</p>"));
     }
 
     private static List<String> noticeLines(Model model)
@@ -274,7 +300,9 @@ public final class PageWriter
         for (var segment : coverage.legend())
             add("<li title=\"", e(segmentTitle(segment)), "\"><span class=\"swatch cov-", segmentClass(segment.kind()),
                             "\"></span>", e(segment.label()), " ", e(segment.shareText()), "</li>");
-        add("</ul></section>\n");
+        add("</ul>");
+        netCashNote(model);
+        add("</section>\n");
     }
 
     private static String segmentTitle(Segment segment)
@@ -311,6 +339,7 @@ public final class PageWriter
                             " <span class=\"gradient\" style=\"background:linear-gradient(to right,",
                             ChartColors.hex(ChartColors.DIRECT), ",", ChartColors.hex(ChartColors.INDIRECT),
                             ")\"></span> ", e(Texts.LookThroughChartThroughFunds), "</p>");
+            netCashNote(model);
             add("</figure><figure><figcaption>", e(Texts.LookThroughChartTopCompanies), "</figcaption>");
             bars(grouping, chart, model.currencyCode());
             add("<p class=\"chart-legend\"><span class=\"legend-caption\">", e(Texts.LookThroughChartBarColor),
@@ -798,7 +827,9 @@ public final class PageWriter
     private void fundRow(FundStatus fund, Map<Map<String, String>, String> shares, boolean unconfirmed)
     {
         var health = unconfirmed ? Health.NONE : fund.health();
-        var statusText = unconfirmed ? "Not looked up: local storage not confirmed" : fund.statusText();
+        var statusText = unconfirmed ? "Not looked up: local storage not confirmed"
+                        : fund.statusText() + fund.netCashText().map(text -> ", " + Character.toLowerCase(text.charAt(0))
+                                        + text.substring(1)).orElse("");
         var tooltip = new ArrayList<String>();
         if (!unconfirmed)
         {
@@ -811,6 +842,7 @@ public final class PageWriter
             fund.sourceDataText().ifPresent(tooltip::add);
             fund.denominatorText().ifPresent(tooltip::add);
             fund.nettingText().ifPresent(tooltip::add);
+            fund.netCashText().ifPresent(tooltip::add);
         }
         var icon = switch (health)
         {

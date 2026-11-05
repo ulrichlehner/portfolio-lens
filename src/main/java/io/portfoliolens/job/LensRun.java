@@ -39,6 +39,7 @@ import io.portfoliolens.core.CompositionPersistencePolicy.StorageMode;
 import io.portfoliolens.core.CompositionRefreshCoordinator.Disposition;
 import io.portfoliolens.core.CompositionRefreshCoordinator.Refresh;
 import io.portfoliolens.core.CompositionStore;
+import io.portfoliolens.core.CompositionValidator;
 import io.portfoliolens.core.FundOverlap;
 import io.portfoliolens.core.ProviderAccount;
 import io.portfoliolens.http.HttpGet;
@@ -213,7 +214,14 @@ public final class LensRun
             companies.preload();
 
             session.budget().restore(state.budget());
-            state.attempts().forEach(attempt -> session.coordinator().restore(ACCOUNT, attempt));
+            // Under older validation rules, an attempt that ended without a usable composition may
+            // have been rejected by a rule that no longer applies: it is not restored, so that fund
+            // is requested and evaluated again now instead of after its 24-hour cadence.
+            var olderRules = state.validationRules() < CompositionValidator.RULES_VERSION;
+            state.attempts().stream()
+                            .filter(attempt -> !olderRules || attempt.noComposition()
+                                            || attempt.retryAt().equals(Instant.MIN))
+                            .forEach(attempt -> session.coordinator().restore(ACCOUNT, attempt));
 
             var funds = funds(scope);
             var refreshes = new LinkedHashMap<CompositionInstrument, Refresh>();
@@ -322,6 +330,7 @@ public final class LensRun
             // what the next run needs
             state.setBudget(session.budget().snapshot());
             state.setAttempts(session.coordinator().attempts(ACCOUNT));
+            state.setValidationRules(CompositionValidator.RULES_VERSION);
             state.setFingerprint(Optional.of(fingerprint));
             var due = nextDue(started, refreshes, pendingLookups);
             if (catchUp.nextAttempt().filter(due::isAfter).isPresent())
@@ -471,7 +480,8 @@ public final class LensRun
         model.instruments().stream().sorted(Comparator.comparing(Instrument::uuid)).forEach(i -> text.append(i.uuid())
                         .append('|').append(i.name()).append('|').append(i.isin().orElse("")).append('|')
                         .append(i.currencyCode().orElse("")).append('\n'));
-        text.append(settings.fingerprintPart()).append('|').append(Version.get());
+        text.append(settings.fingerprintPart()).append('|').append(Version.get()).append("|rules ")
+                        .append(CompositionValidator.RULES_VERSION);
         try
         {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")

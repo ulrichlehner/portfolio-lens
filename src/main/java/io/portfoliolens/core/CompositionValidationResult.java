@@ -28,13 +28,35 @@ public final class CompositionValidationResult
          * them negative, were replaced by one nonnegative netted row that stays
          * unresolved. The source rows are unchanged.
          */
-        NETTED_IDENTIFIERLESS_ROWS;
+        NETTED_IDENTIFIERLESS_ROWS,
+        /**
+         * Informational: rows without a security identifier net to a negative
+         * amount within {@link CompositionValidator#NET_CASH_LIMIT}. The net is
+         * the fund's net cash ({@link CompositionValidationResult#netCash()});
+         * identified rows keep their weights.
+         */
+        NET_CASH,
+        /**
+         * Rows without a security identifier net to a negative amount below
+         * {@link CompositionValidator#NET_CASH_LIMIT}, which likely means
+         * leverage.
+         */
+        NET_CASH_BEYOND_LIMIT;
 
         /** A fatal reason makes the result unusable. */
         public boolean isFatal()
         {
-            return this != NETTED_IDENTIFIERLESS_ROWS;
+            return this != NETTED_IDENTIFIERLESS_ROWS && this != NET_CASH;
         }
+    }
+
+    /**
+     * The negative net of the rows without an identifier, as a fraction of the
+     * fund's NAV. The source index is the most negative of these rows, kept for
+     * provenance only; the rows are never classified by name.
+     */
+    public record NetCash(int sourceIndex, BigDecimal weight)
+    {
     }
 
     /** Empty row index denotes a snapshot-level diagnostic; indices are zero-based. */
@@ -54,15 +76,23 @@ public final class CompositionValidationResult
     private final FundComposition source;
     private final List<ValidatedRow> rows;
     private final Optional<BigDecimal> shortfall;
+    private final Optional<NetCash> netCash;
     private final List<Diagnostic> diagnostics;
     private final boolean semanticsVerified;
 
     CompositionValidationResult(FundComposition source, List<ValidatedRow> rows, Optional<BigDecimal> shortfall,
                     List<Diagnostic> diagnostics, boolean semanticsVerified)
     {
+        this(source, rows, shortfall, Optional.empty(), diagnostics, semanticsVerified);
+    }
+
+    CompositionValidationResult(FundComposition source, List<ValidatedRow> rows, Optional<BigDecimal> shortfall,
+                    Optional<NetCash> netCash, List<Diagnostic> diagnostics, boolean semanticsVerified)
+    {
         this.source = source;
         this.rows = List.copyOf(rows);
         this.shortfall = shortfall;
+        this.netCash = netCash;
         this.diagnostics = List.copyOf(diagnostics);
         this.semanticsVerified = semanticsVerified;
     }
@@ -87,6 +117,16 @@ public final class CompositionValidationResult
     public Optional<BigDecimal> shortfall()
     {
         return shortfall;
+    }
+
+    /**
+     * The fund's negative net cash, when usable rows without an identifier
+     * net to a negative amount within the limit. Not part of {@link #rows()}:
+     * the rows plus the net cash plus the shortfall make one.
+     */
+    public Optional<NetCash> netCash()
+    {
+        return netCash;
     }
 
     /** All diagnostics, including informational ones. */

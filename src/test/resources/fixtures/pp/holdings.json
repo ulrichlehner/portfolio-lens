@@ -1,0 +1,28 @@
+{
+  "date": "2026-07-20",
+  "reportingCurrency": "EUR",
+  "totalAssets": {"value": 23340.50, "currency": "EUR"},
+  "valuationNote": "field unknown to Lens",
+  "items": [
+    {"type": "instrument", "uuid": "00000000-0000-4000-8000-000000000001", "name": "Synthetic World Equity ETF",
+     "shares": 120, "price": {"value": 100.00, "currency": "EUR", "date": "2026-07-17"},
+     "valuation": {"value": 12000.00, "currency": "EUR"}, "weight": 0.5141},
+    {"type": "instrument", "uuid": "00000000-0000-4000-8000-000000000002", "name": "Synthetic US Share",
+     "shares": 10, "price": {"value": 200.00, "currency": "USD", "date": "2026-07-17"},
+     "valuation": {"value": 1840.00, "currency": "EUR"}, "localValuation": {"value": 2000.00, "currency": "USD"},
+     "weight": 0.0788},
+    {"type": "instrument", "uuid": "00000000-0000-4000-8000-000000000003", "name": "Synthetic German Share",
+     "shares": 20, "price": {"value": 150.00, "currency": "EUR", "date": "2026-07-17"},
+     "valuation": {"value": 3000.00, "currency": "EUR"}, "weight": 0.1285},
+    {"type": "instrument", "uuid": "00000000-0000-4000-8000-000000000004", "name": "Synthetic All-World ETF",
+     "shares": 50.5, "price": {"value": 99.01, "currency": "EUR", "date": "2026-07-17"},
+     "valuation": {"value": 5000.00, "currency": "EUR"}, "weight": 0.2142},
+    {"type": "instrument", "uuid": "00000000-0000-4000-8000-000000000005", "name": "Synthetic Unlisted Note",
+     "shares": 1, "price": {"value": 1000.00, "currency": "EUR", "date": "2026-07-01"},
+     "valuation": {"value": 1000.00, "currency": "EUR"}, "weight": 0.0428},
+    {"type": "cash-account", "uuid": "00000000-0000-4000-8000-0000000000c1", "name": "Synthetic Cash",
+     "valuation": {"value": 500.50, "currency": "EUR"}, "weight": 0.0214},
+    {"type": "crypto-wallet", "uuid": "00000000-0000-4000-8000-0000000000d1", "name": "Synthetic Wallet",
+     "valuation": {"value": 0.00, "currency": "EUR"}, "weight": 0.0}
+  ]
+}

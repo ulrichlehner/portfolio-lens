@@ -2,12 +2,13 @@
 # for spec-driven planning. Used by the dev container and by scripts/dev.sh and scripts/openspec.
 FROM maven:3.9-eclipse-temurin-21
 
-# Shell tools for the dev container (.devcontainer/zshrc). The Ubuntu base image strips
+# Shell tools for the dev container (.devcontainer/zshrc). socat forwards the container's
+# 127.0.0.1:5712 to Portfolio Performance on the host (.devcontainer/pp-forward.sh). The Ubuntu base image strips
 # /usr/share/doc, where fzf keeps its zsh key bindings, so that one folder is let back in.
 RUN echo 'path-include=/usr/share/doc/fzf/*' > /etc/dpkg/dpkg.cfg.d/zz-fzf-keybindings \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-        git ripgrep fzf zsh zsh-autosuggestions zsh-syntax-highlighting \
+        git ripgrep fzf zsh zsh-autosuggestions zsh-syntax-highlighting socat \
     && rm -rf /var/lib/apt/lists/*
 
 # Starship prompt (.devcontainer/starship.toml), the official build for this CPU. Not the

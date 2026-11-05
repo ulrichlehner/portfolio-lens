@@ -182,7 +182,16 @@ holds no provider payload and no amounts. `CompositionRequestBudget` and
 `CompositionRefreshCoordinator` get a small snapshot/restore API; their logic is unchanged.
 The file is written atomically (write to a temporary file, then move). A missing or unreadable
 state file is treated as empty, which is safe because the budget then starts fresh and the cache
-still carries retrieval dates.
+still carries retrieval dates. Only finished attempts are stored, so a fund cut off by the run
+time limit is retried by the next run.
+
+**Keeping resolutions (after the first real run).** The ported session restored the stored
+classifications of a retained composition only when the run had made no attempt for the fund. In
+the app the in-memory cache hid this; in a job a failed refresh after the 24-hour cadence turned
+the constituents unresolved. The session now restores them whenever a retained composition has no
+fresh resolutions. Enrichment shares its profile cache with classification from the start of a run,
+so a company profile is requested once instead of twice (first fill of 4,000 synthetic companies:
+8,540 instead of 12,540 requests).
 
 ### D8. One run, step by step
 
@@ -220,6 +229,15 @@ missing data counts and the exit status for monitoring.
 
 Alternative considered: a template engine or a frontend build, rejected for dependencies and the
 no-npm constraint.
+
+**Page size (after the first real run, 2026-11-04).** Rendering every grouping's full table with
+contributions and every treemap tile produced 21.8 MB for a real portfolio of about 4,000
+companies (28.5 MB for a synthetic one of the same size). The embedded JSON now holds each company
+once (amounts in hundredths, source texts in a string table, group members as indexes with a
+revenue factor); the page renders the 200 largest company rows, group rows only for the other
+groupings, and treemap tiles of at least 140 units² (of 640 x 380), merging the rest into one
+"Other" tile per group placed last. The script builds further rows on demand. Result for the
+synthetic 4,000 companies: 1.36 MB, about 9,300 elements, 0.21 MB gzip.
 
 ### D10. Own layout and classification code
 

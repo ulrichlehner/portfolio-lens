@@ -14,6 +14,47 @@ Failed retrieval or validation SHALL NOT replace an existing usable snapshot wit
 - **THEN** the system deletes it and marks affected exposure unresolved until usable data is retrieved.
 
 
+### Requirement: No loss of earlier resolutions
+A run SHALL NOT resolve fewer instruments than the stored data allows because of an exhausted budget, a failed refresh or the run time limit. A retained composition SHALL be used with the stored classifications of its constituents until a successful refresh replaces them.
+
+#### Scenario: Failed refresh after the cadence
+- **WHEN** a fund is refreshed after 24 hours and the provider answers with errors
+- **THEN** the run resolves at least as many instruments as the run before, using the stored composition and classifications.
+
+#### Scenario: Budget used up on a later run
+- **WHEN** a later run within the same day finds the budget used up
+- **THEN** it resolves at least as many instruments as the earlier run.
+
+#### Scenario: Held share with a deferred refresh
+- **WHEN** a directly held share that no fund holds was classified in an earlier run and this run defers its refresh
+- **THEN** the run uses the stored classification of the share and resolves it as before.
+
+### Requirement: Catch-up of missing classifications
+A run SHALL look up the constituents of retained compositions, and the held instruments without a retained composition, that have no stored classification, without requesting the composition again. A failed lookup SHALL wait before its retry, from one hour growing to at most a week. Classifications used by a result SHALL be stored for later runs.
+
+#### Scenario: Lookup failed during the first fill
+- **WHEN** some constituent lookups of the first run fail and the provider answers again later
+- **THEN** a later run looks up only those constituents, and the result reaches the same resolutions as a run without failures.
+
+#### Scenario: Instrument that keeps failing
+- **WHEN** the lookup of one constituent fails in every run
+- **THEN** it is retried after one hour, then after four, sixteen and more hours, and the runs between make no request for it.
+
+#### Scenario: Company profile that cannot be used
+- **WHEN** a company profile or revenue answer fails for one company in every run
+- **THEN** the run state keeps the failure, the company is retried after one hour, then after four, sixteen and more hours, and the runs between make no request for it. A profile field of an unexpected type or length counts as unknown and does not make the answer fail.
+
+### Requirement: Failure scope
+A single failed provider answer SHALL put only that instrument on hold. The whole provider account SHALL back off only on a rate limit, an authentication or entitlement failure, or three failures in a row. A lookup that a limit stopped SHALL name that limit: backoff, the lookup cap of a refresh, the request budget, or no answer stored yet.
+
+#### Scenario: One failing company
+- **WHEN** the provider answers with an error for one company and normally for all others
+- **THEN** the other lookups of the run continue, and the failed company is retried in a later run.
+
+#### Scenario: Lookups on hold
+- **WHEN** lookups are stopped because the provider failed several times in a row while the budget is not used up
+- **THEN** the classification diagnostics show them as on hold by backoff, not as an exhausted budget.
+
 ### Requirement: Lens cache directory
 Provider compositions, classifications, company profiles and revenue splits SHALL be stored only in the configured Lens cache directory, never in the PP workspace, the portfolio file, the output directory or the repository. The output page MAY contain results derived from them.
 

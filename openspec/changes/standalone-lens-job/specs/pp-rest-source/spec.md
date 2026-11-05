@@ -74,7 +74,7 @@ An instrument holding SHALL be treated as missing valuation when it has no price
 - **THEN** it enters the securities scope with 1000 EUR.
 
 ### Requirement: Instrument identifiers
-Lens SHALL use the instrument's ISIN, WKN and ticker symbol from `/instruments` as identifiers for provider requests, and SHALL treat absent optional fields and a null currency code as unknown rather than as errors.
+Lens SHALL use the instrument's ISIN from `/instruments` as the only identifier in provider requests; WKN and ticker symbol SHALL be kept for display only. Absent optional fields and a null currency code SHALL be treated as unknown rather than as errors.
 
 #### Scenario: Instrument without ISIN
 - **WHEN** a held instrument has no ISIN

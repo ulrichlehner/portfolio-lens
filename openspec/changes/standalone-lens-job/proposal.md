@@ -92,3 +92,5 @@ in-app wording. The overlap chart is covered by `breakdown-view`.
   provider requests. A `lens check` at container start-up catches a missing value.
 - Market classification can return from a compatibly licensed source, for example the World Bank
   income groups (CC BY 4.0).
+- A cumulative concentration (Pareto) chart could show how much of the value the largest N
+  companies make up; not planned in this change.

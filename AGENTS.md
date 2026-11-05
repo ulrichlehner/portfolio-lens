@@ -29,8 +29,9 @@ portfolio-lens/
 - Never install Java, Maven, Node.js or other toolchains on the host. Never run `mvn`, `java`,
   `node`, `npm` or `npx` on the host.
 - Run every build and test through `scripts/dev.sh` or inside the dev container. `scripts/dev.sh`
-  uses the image `portfolio-lens-dev` (built from `.devcontainer/`) and the volume
-  `portfolio-lens-m2` for the Maven cache.
+  uses the image `portfolio-lens-dev` (built from `.devcontainer/`) and the volumes
+  `portfolio-lens-m2` for the Maven cache and `portfolio-lens-cache` for the cache of
+  `scripts/dev.sh run`.
 - When work is finished, clean up with `scripts/dev.sh clean`, and with `scripts/dev.sh purge` if
   the user wants. Never remove Docker containers, images or volumes of other projects.
 
@@ -39,10 +40,11 @@ portfolio-lens/
 | Unit tests | `scripts/dev.sh test` |
 | One test class | `scripts/dev.sh test LookThroughEngineTest` |
 | Build | `scripts/dev.sh package` |
+| Run the CLI against the local PP | `scripts/dev.sh run check`, `scripts/dev.sh run run` |
 | Shell in the container | `scripts/dev.sh shell` |
 | OpenSpec | `scripts/openspec list` |
 | Delete build output | `scripts/dev.sh clean` |
-| Also remove image and volume | `scripts/dev.sh purge` |
+| Also remove image and volumes | `scripts/dev.sh purge` |
 
 Dev container: "Dev Containers: Reopen in Container" in VS Code. The repository is mounted at its
 host path and the host's Docker socket is shared, so `scripts/dev.sh` works inside it too; `mvn`
@@ -78,7 +80,9 @@ REST tokens.
 - The v1 contract only adds fields and values. Unknown fields and enum values must be tolerated.
   The reference is PP's `openapi.yaml` at the tag `rest-api-v1.0.0`.
 - PP only answers loopback requests without an `Origin` header, so Lens runs next to PP (same
-  machine or same container network), never in a browser.
+  machine or same network namespace), never in a browser. PP checks the `Host` header, so a
+  container reaches a PP on the host only through a forwarder on its own loopback
+  (`.devcontainer/pp-forward.sh`).
 
 ## Rule 5: Data providers
 

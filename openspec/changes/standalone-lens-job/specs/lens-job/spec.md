@@ -61,6 +61,10 @@ A run SHALL compare a fingerprint of its inputs with the one stored by the previ
 - **WHEN** two runs five minutes apart see identical holdings, instruments, configuration and cache, and no fund is due for refresh
 - **THEN** the second run sends no provider request, leaves `index.html` unchanged and updates the last check time in the status file.
 
+#### Scenario: Unchanged input after the first fill
+- **WHEN** three runs ten minutes apart follow a completed first fill and nothing changed in PP
+- **THEN** each of them makes at most a handful of provider or register requests.
+
 #### Scenario: Price changed
 - **WHEN** a holding's valuation changed since the previous run
 - **THEN** the run recalculates and rewrites the page without provider requests for funds whose compositions are within their refresh cadence.
@@ -71,6 +75,10 @@ Request budget usage, provider backoff and suspension, per-fund attempt times an
 #### Scenario: Budget across runs
 - **WHEN** runs within 24 hours together used the whole configured request budget
 - **THEN** the next run within that window sends no provider request and the page reports the pending lookups.
+
+#### Scenario: Attempt cut off by the time limit
+- **WHEN** a run ends while a fund request is still running
+- **THEN** that attempt is not recorded, and the next run requests the fund again instead of waiting for the 24-hour cadence.
 
 #### Scenario: State file lost
 - **WHEN** the state file is missing or unreadable
@@ -110,3 +118,23 @@ The job SHALL log to standard error with one line per event: run start, skip, co
 #### Scenario: Normal run log
 - **WHEN** a run completes at the default log level
 - **THEN** the log names the number of funds, provider requests, pending lookups and the output file, and no amount or holding name.
+
+#### Scenario: Requests by type
+- **WHEN** a run made provider and register requests
+- **THEN** one INFO line counts them by type (fund composition, company profile, classification search, revenue split, GLEIF register) with found, not found and failed answers, without identifiers.
+
+#### Scenario: Debug level
+- **WHEN** `LENS_LOG_LEVEL` is FINE
+- **THEN** only the Lens loggers log at FINE; the JDK's TLS and HTTP client loggers stay at INFO. Each provider and register request logs one FINE line with its type, outcome, HTTP status and the ISIN it asked for, and each company lookup put on hold logs one FINE line with the next attempt; no URL, header or other query value is logged.
+
+### Requirement: Budget reporting
+Each run SHALL record in the status file the request units used in the rolling 24-hour window, the capacity and whether the budget is used up, and SHALL log a warning while it is used up. Funds SHALL be refreshed in descending value, so that a first fill that spreads over several runs covers the largest holdings first.
+
+#### Scenario: First fill of a large portfolio
+- **WHEN** a synthetic portfolio of 4,000 companies is analysed for the first time with the default budget
+- **THEN** the run completes without pending lookups, and the status file reports the used units below the capacity.
+
+#### Scenario: Budget used up
+- **WHEN** the configured budget is used up
+- **THEN** the status file reports the budget as used up and the log contains a warning naming the budget setting.
+

@@ -1,0 +1,8 @@
+{"items": [
+  {"uuid": "00000000-0000-4000-8000-0000000000e1", "name": "Synthetic Short", "currencyCode": "EUR"},
+  {"uuid": "00000000-0000-4000-8000-0000000000e2", "name": "Synthetic Without Price", "currencyCode": "EUR"},
+  {"uuid": "00000000-0000-4000-8000-0000000000e3", "name": "Synthetic One To One", "currencyCode": "USD"},
+  {"uuid": "00000000-0000-4000-8000-0000000000e4", "name": "Synthetic Without Local", "currencyCode": "GBP"},
+  {"uuid": "00000000-0000-4000-8000-0000000000e5", "name": "Synthetic Converted", "currencyCode": "USD"},
+  {"uuid": "00000000-0000-4000-8000-0000000000e6", "name": "Synthetic Zero Price", "currencyCode": "EUR"}
+]}

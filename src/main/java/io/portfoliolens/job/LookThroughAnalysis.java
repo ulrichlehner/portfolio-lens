@@ -1,0 +1,187 @@
+package io.portfoliolens.job;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.TreeMap;
+
+import io.portfoliolens.core.HeldInstrument;
+import io.portfoliolens.core.SecuritiesValuation;
+import io.portfoliolens.core.HeldInstrument;
+import io.portfoliolens.core.CompositionInstrument;
+import io.portfoliolens.core.CompositionRefreshCoordinator.Snapshot;
+import io.portfoliolens.core.CompositionResult;
+import io.portfoliolens.core.FundComposition;
+import io.portfoliolens.core.InstrumentEvidence;
+import io.portfoliolens.core.InstrumentEvidence.Identifier;
+import io.portfoliolens.core.InstrumentResolution;
+import io.portfoliolens.core.InstrumentResolution.State;
+import io.portfoliolens.core.InstrumentResolver;
+import io.portfoliolens.core.LookThroughEngine;
+import io.portfoliolens.core.LookThroughResult;
+
+/**
+ * Connects the valuation from PP's holdings and retained provider evidence to the pure calculator.
+ * A provider answer is itself fund-classification evidence: it returned an ETF
+ * holdings list for exactly this identifier. Arithmetic-usable answers without
+ * verified semantics are passed separately and stay labelled unverified.
+ */
+public final class LookThroughAnalysis
+{
+    public LookThroughResult calculate(SecuritiesValuation valuation, List<Snapshot> retained,
+                    List<InstrumentEvidence> heldClassifications)
+    {
+        return calculate(valuation, retained, heldClassifications, instrument -> false);
+    }
+
+    /**
+     * @param answered
+     *            whether the classification lookup of a held instrument was answered, also without
+     *            evidence; such an instrument shows as looked up, not as not retrieved
+     */
+    public LookThroughResult calculate(SecuritiesValuation valuation, List<Snapshot> retained,
+                    List<InstrumentEvidence> heldClassifications,
+                    java.util.function.Predicate<CompositionInstrument> answered)
+    {
+        var evidence = new ArrayList<InstrumentEvidence>(heldClassifications);
+        retained.forEach(value -> value.resolutions().stream()
+                        .forEach(resolution -> evidence.addAll(resolution.evidence())));
+        retained.forEach(value -> source(value).ifPresent(composition -> evidence.add(
+                        InstrumentEvidence.fundFromComposition(composition))));
+
+        var resolver = new InstrumentResolver();
+        var lookups = lookups(retained);
+        var resolutions = new HashMap<CompositionInstrument, InstrumentResolution>();
+        var owned = new HashMap<HeldInstrument, InstrumentResolution>();
+        for (var position : valuation.positions())
+        {
+            var instrument = position.security().asCompositionInstrument();
+            var resolved = notRetrieved(resolver.resolve(instrument, evidence, ignored -> List.of(),
+                            () -> answered.test(instrument)));
+            resolutions.put(instrument, resolved);
+            owned.put(position.security(), resolved);
+        }
+
+        var compositions = new HashMap<Identifier, FundComposition>();
+        var unverifiedCompositions = new HashMap<Identifier, FundComposition>();
+        for (var data : retained)
+        {
+            var verified = data.usableComposition();
+            var supplied = source(data);
+            if (supplied.isEmpty())
+                continue;
+            var composition = supplied.orElseThrow();
+            var fund = composition.provenance().fund();
+            var resolved = notRetrieved(resolver.resolve(fund, evidence, ignored -> List.of(), () -> false));
+            resolutions.put(fund, resolved);
+            if (resolved.state() == State.FUND)
+            {
+                var identity = resolved.instrument().orElseThrow();
+                if (verified.isPresent())
+                    compositions.put(identity, composition);
+                else
+                    unverifiedCompositions.put(identity, composition);
+            }
+            for (var row : composition.constituents())
+            {
+                var resolution = notRetrieved(resolver.resolve(row.instrument(), evidence, ignored -> List.of(), () -> false));
+                var lookup = lookups.get(row.instrument().identifiers());
+                resolutions.put(row.instrument(), lookup != null && isOpen(resolution) ? lookup : resolution);
+            }
+        }
+        return new LookThroughEngine().calculate(valuation, Map.copyOf(owned), Map.copyOf(resolutions),
+                        Map.copyOf(compositions), Map.copyOf(unverifiedCompositions));
+    }
+
+    /**
+     * One line of counts for the log: distinct constituents resolved, assumed
+     * to be companies and unresolved by reason, and by lookup status. Never
+     * names, identifiers or amounts.
+     */
+    public static String diagnostics(LookThroughResult result)
+    {
+        var distinct = new HashMap<Map<String, String>, InstrumentResolution>();
+        for (var contribution : result.contributions())
+            contribution.resolution()
+                            .ifPresent(value -> distinct.putIfAbsent(contribution.instrument().identifiers(), value));
+        int resolved = 0;
+        int assumed = 0;
+        var reasons = new TreeMap<InstrumentResolution.Reason, Integer>();
+        var statuses = new TreeMap<InstrumentResolution.LookupStatus, Integer>();
+        for (var value : distinct.values())
+        {
+            if (value.reason() == InstrumentResolution.Reason.ASSUMED_COMPANY)
+                assumed++;
+            else if (value.state() == State.UNRESOLVED)
+                reasons.merge(value.reason(), 1, Integer::sum);
+            else
+                resolved++;
+            statuses.merge(value.lookupStatus(), 1, Integer::sum);
+        }
+        return "Breakdown classification: resolved=" + resolved + ", assumed=" + assumed + ", unresolved by reason "
+                        + reasons + ", lookup status " + statuses;
+    }
+
+    /**
+     * The outcome of the classification lookup of each constituent, kept by
+     * the refresh. Evidence alone cannot tell an answered lookup from one that
+     * failed or was not made, nor carries the assumption of a company.
+     */
+    private Map<Map<String, String>, InstrumentResolution> lookups(List<Snapshot> retained)
+    {
+        var result = new HashMap<Map<String, String>, InstrumentResolution>();
+        for (var value : retained)
+        {
+            for (var resolution : value.resolutions())
+            {
+                var key = resolution.source().identifiers();
+                var previous = result.get(key);
+                if (previous == null || rank(resolution) > rank(previous))
+                    result.put(key, resolution);
+            }
+        }
+        return result;
+    }
+
+    private static int rank(InstrumentResolution resolution)
+    {
+        if (resolution.reason() == InstrumentResolution.Reason.ASSUMED_COMPANY)
+            return 3;
+        return switch (resolution.lookupStatus())
+        {
+            case ATTEMPTED -> 2;
+            case FAILED -> 1;
+            default -> 0;
+        };
+    }
+
+    /**
+     * The calculation never looks anything up; an instrument without evidence here has no answer
+     * yet, which is not the same as an exhausted budget.
+     */
+    private static InstrumentResolution notRetrieved(InstrumentResolution resolution)
+    {
+        return resolution.lookupStatus() == InstrumentResolution.LookupStatus.BUDGET_EXHAUSTED
+                        ? resolution.withLookupStatus(InstrumentResolution.LookupStatus.NOT_RETRIEVED)
+                        : resolution;
+    }
+
+    /** Without evidence of its own, only the outcome of the lookup tells why. */
+    private static boolean isOpen(InstrumentResolution resolution)
+    {
+        return resolution.state() == State.UNRESOLVED
+                        && (resolution.reason() == InstrumentResolution.Reason.MISSING_IDENTITY
+                                        || resolution.reason() == InstrumentResolution.Reason.UNKNOWN_CLASSIFICATION);
+    }
+
+    private Optional<FundComposition> source(Snapshot data)
+    {
+        // Preserve invalid source metadata too: the engine must distinguish an
+        // unusable composition from one the provider never supplied. An older
+        // retained usable source still takes precedence over a failed refresh.
+        return data.usableComposition().or(data::unverifiedComposition)
+                        .or(() -> data.latestAttempt().flatMap(CompositionResult::composition));
+    }
+}

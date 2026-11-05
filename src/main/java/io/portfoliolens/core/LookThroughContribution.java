@@ -18,7 +18,13 @@ public record LookThroughContribution(SecuritiesValuation.Position origin,
          * A provider-supplied fund position whose allocation semantics are not
          * verified. Shown for transparency, never counted as validated coverage.
          */
-        UNVERIFIED_HOLDING
+        UNVERIFIED_HOLDING,
+
+        /**
+         * The negative net cash of a fund's composition (its rows without an
+         * identifier). Always negative; never a company or cash or other assets.
+         */
+        NET_CASH
     }
 
     public enum Reason
@@ -27,7 +33,10 @@ public record LookThroughContribution(SecuritiesValuation.Position origin,
         COMPOSITION_IDENTITY_MISMATCH, NAV_SHORTFALL, CYCLE, DEPTH_LIMIT,
 
         /** Arithmetic-usable provider weights without verified semantics. */
-        PROVIDER_WEIGHT_UNVERIFIED
+        PROVIDER_WEIGHT_UNVERIFIED,
+
+        /** The fund's net cash from its rows without an identifier. */
+        NET_CASH_OF_FUNDS
     }
 
     /** Source occurrence indices preserve even identical legitimate rows. */

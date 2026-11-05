@@ -480,9 +480,20 @@ public class LookThroughDataStatusTest
         assertTrue(plain.nettingText().isEmpty());
         assertFalse(plain.tooltipText().contains(hint));
 
-        // A negative net is still rejected for its negative weight.
-        var negativeNet = rejected(withUnidentifiedRows(NAV, "0.9", "0.0001", "-0.0002"));
-        assertEquals(StatusKind.REJECTED_NEGATIVE_WEIGHT, negativeNet.kind());
+        // A small negative net is the fund's net cash: the row stays OK and names it.
+        var netCash = first(singleFundModel(Optional.of(withUnidentifiedRows(NAV, "1.03", "-0.035", "0.005")),
+                        Optional.of(CompositionResult.Status.RECEIVED), Optional.empty()));
+        assertEquals(StatusKind.OK, netCash.kind());
+        assertTrue(netCash.nettingText().isEmpty());
+        assertTrue(netCash.netCashText().orElseThrow().startsWith("Includes net cash -3"),
+                        netCash.netCashText().toString());
+        assertTrue(netCash.tooltipText().contains(netCash.netCashText().orElseThrow()));
+
+        // A negative net beyond the limit is rejected with its own reason.
+        var negativeNet = rejected(withUnidentifiedRows(NAV, "1.0", "0.01", "-0.13"));
+        assertEquals(StatusKind.REJECTED_NET_CASH_BEYOND_LIMIT, negativeNet.kind());
+        assertTrue(negativeNet.statusText().startsWith("Rejected: negative net cash beyond 10"), negativeNet.statusText());
+        assertTrue(negativeNet.explanation().orElseThrow().contains("leverage"));
         assertTrue(negativeNet.nettingText().isEmpty());
     }
 

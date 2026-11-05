@@ -130,6 +130,52 @@ public class LookThroughEngineTest
         amount(total.toPlainString(), result.total());
     }
 
+    /**
+     * A fund whose identified holdings sum to 103% with -3% net cash in rows without identifier:
+     * companies get their real values, net cash is its own negative category, and the holding
+     * still reconciles to its value.
+     */
+    @Test
+    public void testNetCashOfFundKeepsTheHoldingReconciled()
+    {
+        var a = instrument("a", AssetType.EQUITY, "company-a");
+        var b = instrument("b", AssetType.EQUITY, "company-b");
+        var fund = instrument("cash-fund", AssetType.FUND, null);
+        holding(fund, 10000);
+        composition(fund, row(a, "0.6"), row(b, "0.43"),
+                        new Constituent(new CompositionInstrument("USD CASH", Map.of()), Optional.of("-0.035")),
+                        new Constituent(new CompositionInstrument("EUR CASH", Map.of()), Optional.of("0.005")));
+
+        var result = calculate();
+        reconciles(result);
+        amount("10300", result.value(Category.COMPANY));
+        amount("-300", result.value(Category.NET_CASH));
+        amount("0", result.value(Category.UNRESOLVED));
+        amount("0", result.value(Category.CASH_OR_OTHER));
+        assertEquals(2, result.companies().size());
+        var netCash = result.contributions().stream().filter(c -> c.category() == Category.NET_CASH).toList();
+        assertEquals(1, netCash.size());
+        assertEquals(LookThroughContribution.Reason.NET_CASH_OF_FUNDS, netCash.get(0).reason());
+        assertEquals(LookThroughEngine.NET_CASH_LABEL, netCash.get(0).instrument().label());
+        assertFalse(netCash.get(0).isDirect());
+    }
+
+    @Test
+    public void testNetCashBeyondTheLimitLeavesTheFundUnresolved()
+    {
+        var a = instrument("a", AssetType.EQUITY, "company-a");
+        var fund = instrument("levered-fund", AssetType.FUND, null);
+        holding(fund, 10000);
+        composition(fund, row(a, "1.12"),
+                        new Constituent(new CompositionInstrument("USD CASH", Map.of()), Optional.of("-0.12")));
+
+        var result = calculate();
+        reconciles(result);
+        amount("10000", result.value(Category.UNRESOLVED));
+        amount("0", result.value(Category.NET_CASH));
+        assertTrue(result.companies().isEmpty());
+    }
+
     @Test
     public void testDirectAndTwoFundsOverlapPreservesDuplicateRowsWithoutParentDoubleCount()
     {

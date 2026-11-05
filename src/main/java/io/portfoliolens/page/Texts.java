@@ -30,6 +30,18 @@ public final class Texts
 
     public static final String LookThroughCategoryCashOrOther = "Cash or other assets";
 
+    public static final String LookThroughCategoryNetCash = "Net cash of funds";
+
+    public static final String LookThroughNetCashTooltip = "Negative cash balances that funds report as rows without identifier. Companies are shown at the funds' real weights; this amount reconciles them with the securities value.";
+
+    public static final String LookThroughNetCashNotShown = "Not shown: net cash of funds {0} ({1})";
+
+    public static final String LookThroughStatusNetCash = "Includes net cash {0} of the fund (rows without identifier)";
+
+    public static final String LookThroughStatusRejectedNetCash = "Rejected: negative net cash beyond {0}";
+
+    public static final String LookThroughStatusExplainNetCash = "The provider returned a composition whose rows without identifier net to a negative cash balance beyond {0} of the fund, which likely means leverage. The fund stays unresolved.";
+
     public static final String LookThroughCategoryCashOrOtherTooltip = "Cash, bonds, derivatives and other positions in funds that are not company shares.";
 
     public static final String LookThroughCategoryUngroupedEquity = "Ungrouped equity";

@@ -10,73 +10,74 @@ Provide automatic, replaceable sources of fund compositions with validated seman
 The system SHALL retrieve compositions automatically after individual credential configuration, initially through Eulerpool. Provider substitution SHALL preserve the exposure contract. Routine use SHALL NOT require file uploads, manual constituent mapping or a shared application key.
 
 #### Scenario: Configured fund retrieval
-- **WHEN** a configured user opens an analysis containing an eligible fund
-- **THEN** the system schedules eligible retrieval and reports its status without requesting a holdings file.
+- **WHEN** a run with a configured key and confirmed local storage finds an eligible fund
+- **THEN** the system schedules eligible retrieval and reports its status on the page without requesting a holdings file.
 
 ### Requirement: Licensed local use
-Official upstream integration and binary releases SHALL require verified desktop-use and adapter-distribution permissions. An explicitly authorized experimental source-only development fork MAY be published with a notice of unverified rights and data quality; the notice SHALL NOT claim to grant rights or transfer legal responsibility.
+Published Lens binaries or container images SHALL require verified runtime and adapter-distribution permissions of the provider. The source repository MAY be published with a notice of unverified rights and data quality; the notice SHALL NOT claim to grant rights or transfer legal responsibility.
 
 #### Scenario: Free cache permission unresolved
 - **WHEN** API access succeeds, local caching permission is unverified and the user has not confirmed local storage for the account
-- **THEN** persistence remains disabled, session-only operation is available under the recorded development assumption, and official integration or binary release still requires the separate permission and data-quality gates.
+- **THEN** no provider data is requested or stored, and binary or image releases still require the separate permission and data-quality gates.
 
 ### Requirement: Local storage confirmation
-Real-data persistence SHALL require either verified permission or the user's explicit confirmation for the provider account that local storage is allowed. Without either, persistence SHALL remain disabled.
+Real-data persistence SHALL require either verified permission or the user's explicit confirmation in the configuration that local storage is allowed. Without either, persistence SHALL remain disabled and no provider data SHALL be requested.
 
 #### Scenario: User confirms local storage
-- **WHEN** the user confirms for a provider account that local storage is allowed and keeps the persistence preference on
-- **THEN** validated compositions and classifications of that account are stored on disk and are available after a restart without new provider requests.
+- **WHEN** the user confirms in the configuration that local storage is allowed
+- **THEN** validated compositions and classifications are stored in the cache directory and are available in later runs without new provider requests.
 
 ### Requirement: Development permission assumption
-Implementation and local development MAY proceed under an explicitly recorded development-only assumption of runtime/display and adapter distribution permission. That assumption SHALL NOT establish verified permission or satisfy the pre-publish permission checklist. Real-data disk persistence SHALL follow the user's per-account confirmation, not the assumption itself.
+Implementation and local development MAY proceed under an explicitly recorded development-only assumption of runtime/display and adapter distribution permission. That assumption SHALL NOT establish verified permission or satisfy the pre-publish permission checklist. Real-data disk persistence SHALL follow the user's confirmation, not the assumption itself.
 
 #### Scenario: Development permission assumed
 - **WHEN** development proceeds under the recorded permission assumption and the user has not confirmed local storage
-- **THEN** real provider data remains session-only, and official integration or binary release remains blocked until runtime/display, adapter distribution and applicable attribution obligations are verified.
+- **THEN** no real provider data is requested or stored, and binary or image releases remain blocked until runtime/display, adapter distribution and applicable attribution obligations are verified.
 
 #### Scenario: Authorized experimental source fork
-- **WHEN** the user explicitly authorizes source-only publication of the development fork before provider clarification
-- **THEN** the fork includes an experimental-use notice, distributes no provider payloads or credentials, and leaves permission and data-quality gates open; the notice does not assert that provider rights are verified or responsibility has legally transferred.
+- **WHEN** the Lens source repository is published before provider clarification
+- **THEN** it includes the notice of unverified rights, distributes no provider payloads or credentials, and leaves permission and data-quality gates open; the notice does not assert that provider rights are verified or responsibility has legally transferred.
 
 ### Requirement: Provider-specific persistence preference
-The system SHALL offer a local persistence preference per provider/account, defaulting on where permitted. Effective persistence SHALL require both user preference and provider policy approval. Policies SHALL distinguish permitted, prohibited and unverified persistence, including retention limits. Restrictions SHALL override the preference without disabling permitted session-only analysis or changing other providers' settings.
+Effective persistence SHALL require the user's confirmation and provider policy approval. Policies SHALL distinguish permitted, prohibited and unverified persistence, including retention limits. Restrictions SHALL override the confirmation without changing other providers' settings.
 
 #### Scenario: User opts out of caching
-- **WHEN** a user disables persistence for a provider
-- **THEN** retrieval, validation, look-through and refresh remain available using session-only results, with no requirement to restart PP.
+- **WHEN** the user turns the local storage confirmation off
+- **THEN** the provider's data is neither requested nor stored, and the page shows the direct analysis without provider data, with no restart of PP needed.
+
+#### Scenario: Provider prohibits persistence
+- **WHEN** a provider's policy prohibits persistence although the user confirmed local storage
+- **THEN** no data of that provider is requested or stored, and the page names the policy as the reason.
 
 #### Scenario: Different provider permissions
 - **WHEN** one provider permits persistence and another prohibits it or has unverified permission
-- **THEN** the first can use its approved disk cache and the second uses session-only results, independently of each other.
-
-### Requirement: Session-only operation
-Session-only mode SHALL keep provider compositions, enrichment mappings and derived exposure results out of persistent storage, including portable settings and diagnostic payloads. It SHALL reuse permitted in-memory data while PP runs and discard it at exit. Portfolio, credential and preference storage SHALL remain independent of this choice. Analytical semantics and validation SHALL be identical in both storage modes.
-
-#### Scenario: Restart without persistent data
-- **WHEN** PP restarts in session-only mode with network access
-- **THEN** it schedules quota-aware initial retrieval and restores available fund analysis without requiring manual uploads or enabling disk caching.
-
-#### Scenario: Restart offline in session-only mode
-- **WHEN** PP starts without network access and no permitted retained composition is available
-- **THEN** direct analysis remains available and affected fund exposure is explicitly unresolved until retrieval succeeds.
+- **THEN** the first uses its cache, and the second makes no requests, independently of each other.
 
 ### Requirement: Persistence withdrawal and cleanup
-Disabling persistence or withdrawing its permission SHALL stop disk reads and writes for the affected provider/account and delete its retained provider data. Pending jobs SHALL NOT recreate it. Reduced retention SHALL delete expired data. Other providers' permitted caches and the portfolio SHALL remain untouched. Permitted in-memory analysis MAY continue; persistence SHALL NOT resume until both user preference and policy permit it.
+Withdrawing the confirmation or a policy permission SHALL make the next run delete the affected provider's retained data in the cache directory before any other work and rewrite the page without results derived from it. Reduced retention SHALL delete expired data. Other providers' caches, register data and the portfolio SHALL remain untouched.
+
+#### Scenario: Confirmation withdrawn
+- **WHEN** the user turns the confirmation setting off and the next run starts
+- **THEN** the provider's compositions, classifications, profiles and revenue splits are deleted from the cache, register data remains, and the new page shows no provider-derived exposure.
 
 #### Scenario: Permission withdrawn during refresh
-- **WHEN** persistence permission is withdrawn while a refresh is pending
-- **THEN** the provider's disk cache is removed, the completed job cannot recreate it, and permitted results remain usable only in memory.
+- **WHEN** the confirmation is withdrawn while a run that started with it is still working
+- **THEN** that run finishes with the configuration it read at start, and the next run deletes the provider's cached data before any other work, so no later run can recreate it from the earlier configuration.
 
 #### Scenario: Persistence is re-enabled
-- **WHEN** a user re-enables persistence and the applicable policy permits it
-- **THEN** only eligible validated results within the permitted retention can populate the provider's cache, without changing analysis calculations.
+- **WHEN** the user turns the confirmation back on
+- **THEN** later runs retrieve data again within budget, without changing analysis calculations.
 
 ### Requirement: Credential and portfolio privacy
-The system SHALL keep credentials outside portfolio files, exports and logs, using secure local storage or session-only entry. Requests SHALL contain only identifiers needed for retrieval or bounded enrichment, never quantities, balances or transactions.
+The system SHALL keep credentials outside the cache, the state file, the page, the status file and logs, reading them only from configuration. Requests SHALL contain only identifiers needed for retrieval or bounded enrichment, never quantities, balances or transactions.
 
 #### Scenario: Credential storage unavailable
-- **WHEN** secure storage cannot be used
-- **THEN** the system offers session-only entry without silently persisting the key in plaintext settings.
+- **WHEN** the key file setting names a file that cannot be read
+- **THEN** the run stops with a configuration error naming the setting, and no key is written anywhere as a substitute.
+
+#### Scenario: Provider request content
+- **WHEN** a run requests a fund composition
+- **THEN** the request contains the fund identifier and the key header only, and no amount, quantity or holding name.
 
 ### Requirement: Independent provenance dates
 Every composition SHALL identify its source, fund, retrieval time, available provider refresh time and available holdings-effective date. Missing dates SHALL remain unknown. Retrieval or provider refresh time SHALL NOT stand in for the holdings-effective date.
@@ -158,15 +159,15 @@ The system SHALL attempt automatic classification and identity resolution within
 - **THEN** an exact-ISIN classification is shared within the account without asserting those source tickers are verified aliases, and both original contribution rows remain inspectable.
 
 ### Requirement: Refresh scheduling and quota handling
-Automatic refresh SHALL occur at most once per rolling 24 hours per fund while PP runs. Manual refresh SHALL respect provider quotas and coalesce concurrent requests. Redrawing a view SHALL NOT trigger retrieval. Rate limits SHALL cause backoff, and authentication or entitlement failures SHALL suspend requests until configuration changes.
+Automatic refresh SHALL occur at most once per rolling 24 hours per fund across all runs. Runs SHALL respect provider quotas and coalesce duplicate identifiers. Rewriting the page SHALL NOT by itself trigger retrieval. Rate limits SHALL cause backoff across runs, and authentication or entitlement failures SHALL suspend requests until the key configuration changes.
 
 #### Scenario: Manual refresh during rate limiting
-- **WHEN** a user requests refresh before a provider retry deadline
-- **THEN** the system reports the deferred status without sending another request or buying quota.
+- **WHEN** a run, scheduled or started by hand, begins before a provider retry deadline recorded by an earlier run
+- **THEN** the run sends no request to that provider and the page reports the deferred status with the next attempt time.
 
 #### Scenario: Application closed
 - **WHEN** PP is not running
-- **THEN** no automatic refresh is performed by this feature.
+- **THEN** the run makes no provider request.
 
 #### Scenario: Bounded parallel classification
 - **WHEN** constituent classifications run concurrently
@@ -176,17 +177,65 @@ Automatic refresh SHALL occur at most once per rolling 24 hours per fund while P
 - **WHEN** classification fails because of transport, authentication, entitlement or rate limiting
 - **THEN** the failure is not cached as a definitive missing classification, relevant backoff/suspension is preserved, and directly held instruments cannot bypass the shared request budget.
 
-### Requirement: Last valid data and retention
+#### Scenario: Key replaced after suspension
+- **WHEN** a run was suspended by an authentication failure and the user configures a different key
+- **THEN** the next run lifts the suspension and retries within budget.
+
+### Requirement: Last valid data across runs
 Failed retrieval or validation SHALL NOT replace an existing usable snapshot with empty or invalid data. Licensed retained data SHALL remain available with visible age and failure status only within permitted retention. Different sources or vintages SHALL NOT be silently blended.
 
 #### Scenario: Failed refresh with retained data
 - **WHEN** refresh fails and a previous valid snapshot is within permitted retention
 - **THEN** the system uses that snapshot with a failed-refresh status and its original dates.
 
-#### Scenario: Failed refresh in session-only mode
-- **WHEN** refresh fails after a usable composition was retrieved during the current session
-- **THEN** the system retains that permitted in-memory snapshot with its original dates and a visible failed-refresh status, without writing it to disk.
-
 #### Scenario: Retention expires
 - **WHEN** retained data reaches its permitted retention limit
 - **THEN** the system deletes it and marks affected exposure unresolved until usable data is retrieved.
+
+### Requirement: No loss of earlier resolutions
+A run SHALL NOT resolve fewer instruments than the stored data allows because of an exhausted budget, a failed refresh or the run time limit. A retained composition SHALL be used with the stored classifications of its constituents until a successful refresh replaces them.
+
+#### Scenario: Failed refresh after the cadence
+- **WHEN** a fund is refreshed after 24 hours and the provider answers with errors
+- **THEN** the run resolves at least as many instruments as the run before, using the stored composition and classifications.
+
+#### Scenario: Budget used up on a later run
+- **WHEN** a later run within the same day finds the budget used up
+- **THEN** it resolves at least as many instruments as the earlier run.
+
+#### Scenario: Held share with a deferred refresh
+- **WHEN** a directly held share that no fund holds was classified in an earlier run and this run defers its refresh
+- **THEN** the run uses the stored classification of the share and resolves it as before.
+
+### Requirement: Catch-up of missing classifications
+A run SHALL look up the constituents of retained compositions, and the held instruments without a retained composition, that have no stored classification, without requesting the composition again. A failed lookup SHALL wait before its retry, from one hour growing to at most a week. Classifications used by a result SHALL be stored for later runs.
+
+#### Scenario: Lookup failed during the first fill
+- **WHEN** some constituent lookups of the first run fail and the provider answers again later
+- **THEN** a later run looks up only those constituents, and the result reaches the same resolutions as a run without failures.
+
+#### Scenario: Instrument that keeps failing
+- **WHEN** the lookup of one constituent fails in every run
+- **THEN** it is retried after one hour, then after four, sixteen and more hours, and the runs between make no request for it.
+
+#### Scenario: Company profile that cannot be used
+- **WHEN** a company profile or revenue answer fails for one company in every run
+- **THEN** the run state keeps the failure, the company is retried after one hour, then after four, sixteen and more hours, and the runs between make no request for it. A profile field of an unexpected type or length counts as unknown and does not make the answer fail.
+
+### Requirement: Failure scope
+A single failed provider answer SHALL put only that instrument on hold. The whole provider account SHALL back off only on a rate limit, an authentication or entitlement failure, or three failures in a row. A lookup that a limit stopped SHALL name that limit: backoff, the lookup cap of a refresh, the request budget, or no answer stored yet.
+
+#### Scenario: One failing company
+- **WHEN** the provider answers with an error for one company and normally for all others
+- **THEN** the other lookups of the run continue, and the failed company is retried in a later run.
+
+#### Scenario: Lookups on hold
+- **WHEN** lookups are stopped because the provider failed several times in a row while the budget is not used up
+- **THEN** the classification diagnostics show them as on hold by backoff, not as an exhausted budget.
+
+### Requirement: Lens cache directory
+Provider compositions, classifications, company profiles and revenue splits SHALL be stored only in the configured Lens cache directory, never in the PP workspace, the portfolio file, the output directory or the repository. The output page MAY contain results derived from them.
+
+#### Scenario: Stored composition location
+- **WHEN** a run stores a validated composition
+- **THEN** the data is written below the cache directory and nowhere else.

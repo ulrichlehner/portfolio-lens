@@ -7,53 +7,38 @@ an API key, seeing its state, and choosing the persistence preference.
 
 ## Requirements
 
-### Requirement: Single API key field
-The provider settings page SHALL show one masked API key field, a link to request a key and a one-line key status. It SHALL NOT show a stored key. Entering a key and confirming the preferences dialog with Apply or OK SHALL store it in secure storage. Cancelling the dialog SHALL NOT change the stored key.
-
-#### Scenario: First key entered
-- **WHEN** a user without a key enters a valid key and presses OK
-- **THEN** the key is stored securely, the field is cleared and the next opening of the page shows the status "key stored" without the key.
-
-#### Scenario: Dialog cancelled
-- **WHEN** a user types a key and cancels the dialog
-- **THEN** no key is stored or replaced.
-
-#### Scenario: Empty field with stored key
-- **WHEN** a key is stored and the user confirms the dialog without typing in the field
-- **THEN** the stored key remains unchanged.
-
 ### Requirement: Key validation feedback
-The page SHALL reject keys that contain whitespace or line breaks before storing them, showing the reason on the page and keeping the dialog open.
+Lens SHALL reject a configured key that contains whitespace, line breaks or characters outside the accepted token alphabet before any provider request, naming the setting in the error and not printing the key. A single trailing line break in a key file SHALL be removed before validation.
 
 #### Scenario: Key with line break
-- **WHEN** a user pastes a key that contains a line break and presses Apply
-- **THEN** the page shows that the key is invalid, nothing is stored, and the dialog stays open.
+- **WHEN** the configured key contains a line break inside the value
+- **THEN** the run stops with a configuration error that names the key setting, and no provider request is made.
 
 ### Requirement: Key removal
-The page SHALL offer one control that removes the key from the session and from secure storage, enabled only while a key is configured.
+Removing the key from the configuration SHALL stop all provider requests from the next run on. Provider data already in the cache SHALL remain usable within its retention as long as the local storage confirmation stays on.
 
 #### Scenario: Remove stored key
-- **WHEN** a user removes a stored key
-- **THEN** the key is deleted from secure storage and the session, the status shows "no key", and retrievals that need the key stop.
+- **WHEN** the user removes the key setting and the next run starts
+- **THEN** no provider request is made, cached compositions within retention are still used, and the page states that no API key is configured.
 
-### Requirement: Session-only fallback
-Session-only key entry SHALL be offered only when secure storage is unavailable. The page SHALL then state that the key is kept until PP exits and SHALL NOT write it to plaintext settings.
+### Requirement: API key from configuration
+Lens SHALL read the provider API key from an environment variable or from a file named by a separate setting. It SHALL NOT store, copy or rewrite the key. Without a key, Lens SHALL make no provider request.
 
-#### Scenario: Secure storage unavailable
-- **WHEN** secure storage cannot be used and a user enters a key and presses OK
-- **THEN** the key is used for the current session only, the status states this, and no key is written to disk.
+#### Scenario: Key in a secret file
+- **WHEN** the key file setting names a readable file with a valid key
+- **THEN** the key is used for provider requests of this run and is not written anywhere.
 
-### Requirement: Compact persistence preference
-The page SHALL show a confirmation that the user's provider plan allows local storage, the persistence preference as one checkbox, and a single status line. The confirmation SHALL be off by default and SHALL be stored only with Apply or OK. While it is off and provider policy is not verified, the persistence checkbox SHALL be disabled and the status line SHALL name the reason in one sentence. Once it is on, the checkbox SHALL be enabled and default to on.
+#### Scenario: No key configured
+- **WHEN** neither the key nor the key file is set
+- **THEN** the run makes no provider request and the page states that funds are broken down only with an API key and names the setting.
 
-#### Scenario: Persistence unverified
-- **WHEN** the provider's persistence permission is unverified and the confirmation is off
-- **THEN** the checkbox is disabled and the status line states that compositions are kept for the session only until local storage is confirmed.
+### Requirement: Local storage confirmation setting
+Lens SHALL offer one setting with which the user confirms that their provider plan allows local storage of provider data. It SHALL be off by default. Only when it is on SHALL provider data be requested and stored.
 
-#### Scenario: Local storage confirmed
-- **WHEN** the user ticks the confirmation and presses OK
-- **THEN** the persistence checkbox is enabled and on, and the status line states that provider data is stored on this computer.
+#### Scenario: Confirmation off
+- **WHEN** a key is configured and the confirmation setting is off
+- **THEN** no provider request is made, cached provider data is deleted, the page shows only the holdings with a banner naming `LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED=true`, `check` fails and every run logs a warning (see `lens-job`, "Warning for an unconfirmed provider key").
 
-#### Scenario: Confirmation withdrawn
-- **WHEN** the user clears the confirmation and presses OK
-- **THEN** the account's stored provider data is deleted, the checkbox is disabled, and analysis continues with session-only data.
+#### Scenario: Confirmation on
+- **WHEN** a key is configured and the confirmation setting is on
+- **THEN** compositions and company data are requested within budget and stored in the cache directory.

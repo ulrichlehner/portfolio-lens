@@ -6,35 +6,24 @@ Explain current company exposure across direct securities and fund constituents 
 
 ## Requirements
 
-### Requirement: Feature identity
-The analysis SHALL be presented as Breakdown (German: Aufschlüsselung) within Portfolio Performance, as a sub-item of Statement of Assets (German: Vermögensaufstellung), with the view title Breakdown by Company (German: Aufschlüsselung nach Unternehmen). It SHALL retain the existing PP application identity and portfolio compatibility rather than requiring a separately branded application.
-
-#### Scenario: Open the analysis
-- **WHEN** a user navigates to the look-through analysis
-- **THEN** the feature is listed as Breakdown under Statement of Assets within the existing PP application, and the view is titled Breakdown by Company.
-
-#### Scenario: German user interface
-- **WHEN** PP runs with the German language
-- **THEN** the sidebar shows Aufschlüsselung under Vermögensaufstellung and the view is titled Aufschlüsselung nach Unternehmen.
-
 ### Requirement: Portfolio scope
-The analysis SHALL value every security with a nonzero net position across all portfolios of the open client in the reporting currency. It SHALL NOT require a prior selection. Percentages SHALL use the current value of those held securities, excluding account cash. Zero positions SHALL contribute nothing. Unsupported negative positions SHALL be disclosed as excluded, and an empty portfolio SHALL show an explicit empty state.
+The analysis SHALL value every instrument holding that PP reports for the configured file, in the reporting currency of the holdings response. It SHALL NOT require a prior selection. Percentages SHALL use the current value of those holdings, excluding account cash. Unsupported negative positions SHALL be disclosed as excluded, and an empty portfolio SHALL show an explicit empty state.
 
 #### Scenario: Open without a prior selection
-- **WHEN** a user opens the Breakdown view in a client with holdings and no securities view is open
-- **THEN** the analysis covers all held securities and reports the valuation date.
+- **WHEN** a run reads a file with instrument holdings
+- **THEN** the analysis covers all instrument holdings and reports the valuation date of the holdings response.
 
 #### Scenario: Accounts and closed positions
-- **WHEN** the portfolio contains positive securities, an account cash balance and a zero position
-- **THEN** only positive securities enter the denominator, and the view labels the account-cash exclusion.
+- **WHEN** the holdings contain instruments, cash accounts and a holding of a type Lens does not know
+- **THEN** only the instruments enter the denominator, the page labels the account-cash exclusion and names the unsupported holding as not analysed.
 
 #### Scenario: Negative position
 - **WHEN** a held position is negative
-- **THEN** the view identifies the excluded unsupported position and does not claim complete coverage of the entire portfolio.
+- **THEN** the page identifies the excluded unsupported position and does not claim complete coverage of the entire portfolio.
 
 #### Scenario: Empty portfolio
-- **WHEN** the portfolio has no current holding
-- **THEN** the view states that there is no holding and shows no invented coverage categories.
+- **WHEN** the file has no instrument holding
+- **THEN** the page states that there is no holding and shows no invented coverage categories.
 
 ### Requirement: Missing valuation visibility
 Missing valuation or currency conversion SHALL make the analysis explicitly incomplete. The system SHALL NOT substitute zero or show a whole-selection coverage percentage when its denominator cannot be established.
@@ -90,7 +79,7 @@ Nested funds SHALL be decomposed only with usable compositions. Cycles and branc
 - **THEN** only that branch becomes unresolved with a cycle reason and all other validated branches remain usable.
 
 ### Requirement: Visible analysis limitations
-The view SHALL state that current valuations are combined with available composition dates. It SHALL show unresolved exposure alongside results, provide per-source reasons and refresh status, and remain usable without manual uploads. Unsupported economic exposure SHALL NOT be substituted with collateral or a similar index fund.
+The page SHALL state that current valuations are combined with available composition dates. It SHALL show unresolved exposure alongside results, provide per-source reasons and refresh status, and remain usable without manual uploads. Unsupported economic exposure SHALL NOT be substituted with collateral or a similar index fund.
 
 #### Scenario: Known fund has no usable composition
 - **WHEN** an instrument is classified as a fund but its composition is unavailable or unusable
@@ -105,8 +94,8 @@ The view SHALL state that current valuations are combined with available composi
 - **THEN** its value remains unresolved with an unsupported-exposure reason, while other validated holdings remain visible.
 
 #### Scenario: Session-only composition storage
-- **WHEN** persistent caching is disabled by preference or provider policy
-- **THEN** the same validated compositions produce the same exposure results, while the data-status UI explains that reopening PP needs retrieval and offline fund analysis may be unavailable after restart.
+- **WHEN** persistent caching is not permitted because local storage is not confirmed or the provider policy does not allow it
+- **THEN** no provider data is requested, every unclassified position remains in the not-yet-decomposed category with a reason naming the missing confirmation or the policy, and no row or banner presents a retrieval that has not started.
 
 #### Scenario: No provider credentials
 - **WHEN** no provider credentials are configured
@@ -124,8 +113,15 @@ The ultimate objective SHALL remain 100% validated coverage of the declared scop
 - **THEN** the system does not claim 100% validated coverage.
 
 ### Requirement: Existing portfolio compatibility
-Enabling, disabling or removing look-through SHALL NOT modify transactions, owned securities or the portfolio file format. Unavailable or incompatible derived data SHALL be safely discarded and shown as unavailable until retrieved again.
+Lens SHALL NOT modify transactions, instruments or the portfolio file; it reads PP only. Unavailable or incompatible cached data SHALL be safely discarded and shown as unavailable until retrieved again.
 
 #### Scenario: Cache incompatible after update
-- **WHEN** existing derived composition data cannot be read by the current version
-- **THEN** the portfolio remains usable, the incompatible data is discarded, and affected exposure is unresolved until a usable replacement is obtained.
+- **WHEN** existing cached composition data cannot be read by the current Lens version
+- **THEN** the run continues, the incompatible data is discarded, and affected exposure is unresolved until a usable replacement is obtained.
+
+### Requirement: Standalone identity
+The analysis SHALL be presented as Portfolio Lens, a standalone companion to Portfolio Performance, on a page titled Breakdown by Company. It SHALL state that it is not part of PP and not supported by the PP maintainers, and SHALL NOT require any change to PP or to the portfolio file.
+
+#### Scenario: Open the page
+- **WHEN** a user opens the generated page
+- **THEN** the page title reads Breakdown by Company, the header names Portfolio Lens and the analysed PP file label, and the footer carries the independence notice.

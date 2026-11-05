@@ -110,10 +110,10 @@ Allocation semantics SHALL be validated either by an authoritative provider decl
 - **THEN** the acceptance record is withdrawn and affected funds return to unvalidated rather than keeping the earlier claim.
 
 ### Requirement: Conservative numerical validation
-The system SHALL preserve source rows and use decimal weights without general normalization. Malformed, nonfinite, negative or overfull weights SHALL make a snapshot unusable, except for an evidenced rounding excess of at most one millionth in fractional-weight units. Accepted excess SHALL be removed proportionally with exact reconciliation. Positive shortfalls SHALL remain unresolved. Legitimate duplicate rows SHALL only be combined after validating their semantics.
+The system SHALL preserve source rows and use decimal weights without general normalization. Malformed, nonfinite, negative or overfull weights SHALL make a snapshot unusable, except for net cash within its limit (see "Netting of rows without identifier") and a rounding excess of at most one millionth, which SHALL be removed proportionally with exact reconciliation. Positive shortfalls SHALL remain unresolved. Duplicate rows SHALL only be combined after validating their semantics.
 
 #### Scenario: Signed or overfull response
-- **WHEN** a response contains a negative allocation on a row with a security identifier, a negative net of rows without an identifier, or a total above 100% beyond the rounding tolerance
+- **WHEN** a response contains a negative allocation on a row with a security identifier, a negative net of rows without an identifier beyond the net cash limit, or a total above 100% beyond the rounding tolerance
 - **THEN** the system retains diagnostic source information and leaves the fund unresolved rather than dropping rows or rescaling it.
 
 #### Scenario: Provider rounding excess
@@ -129,15 +129,15 @@ The system SHALL preserve source rows and use decimal weights without general no
 - **THEN** both contributions are retained in the calculation rather than discarding one by identifier.
 
 ### Requirement: Netting of rows without identifier
-Negative rows without a security identifier SHALL follow this requirement instead of the negative-weight rule. When all identified rows are nonnegative, rows without an identifier SHALL be netted against each other. A zero or positive net SHALL stay unresolved as one amount with a non-fatal diagnostic; a negative net SHALL make the snapshot unusable. Netting SHALL NOT classify rows by name, rescale identified rows or change source rows.
+Negative rows without a security identifier SHALL follow this requirement, not the negative-weight rule. If all identified rows are nonnegative, rows without an identifier SHALL be netted, never classified by name, and source rows stay unchanged. A zero or positive net SHALL stay unresolved as one amount. A negative net down to -10% of NAV (a named limit) SHALL be the fund's net cash, with identified rows at their weights. Both SHALL record a non-fatal diagnostic.
 
 #### Scenario: Negative cash and currency rows without identifier
 - **WHEN** a composition sums to 100%, all identified rows are nonnegative, and its rows without an identifier are +0.05% and -0.015% of the fund
 - **THEN** the identified rows keep their exact weights and are eligible for classification, the identifier-less rows become one unresolved amount of +0.035%, the fund reconciles exactly, the source rows stay unchanged, and a netting diagnostic is recorded.
 
 #### Scenario: Negative net without identifier
-- **WHEN** the rows without an identifier sum to a negative amount
-- **THEN** the snapshot is unusable and the fund stays unresolved with the negative-weight reason.
+- **WHEN** the identified rows of a composition sum to 103% and its rows without an identifier, for example a "USD CASH" row and small "INR/USD" forward rows, net to -3%
+- **THEN** the snapshot is usable, the identified rows keep their weights, the rows without an identifier become one net cash amount of -3% that is not classified by name, the fund reconciles exactly, and a net cash diagnostic is recorded.
 
 #### Scenario: Short position with identifier
 - **WHEN** a row with a security identifier has a negative weight
@@ -239,3 +239,17 @@ Provider compositions, classifications, company profiles and revenue splits SHAL
 #### Scenario: Stored composition location
 - **WHEN** a run stores a validated composition
 - **THEN** the data is written below the cache directory and nowhere else.
+
+### Requirement: Net cash beyond the limit
+A negative net of rows without an identifier below -10% of the fund's NAV SHALL make the snapshot unusable. The rejection SHALL name negative net cash beyond the limit, which likely means leverage, and SHALL be told apart from negative weights of identified rows.
+
+#### Scenario: Large negative net
+- **WHEN** the identified rows sum to 112% and the rows without an identifier net to -12%
+- **THEN** the fund stays unresolved and its data status says that the negative net cash is beyond the limit.
+
+### Requirement: Re-evaluation after rule changes
+When the validation rules change, the first run after the upgrade SHALL evaluate again every fund whose last attempt ended without a usable composition, without waiting for the fund cadence. Funds with a stored usable composition SHALL keep their cadence.
+
+#### Scenario: Fund rejected by the old rule
+- **WHEN** a run under the old rules rejected a fund for its negative net cash and the next run uses the new rules on unchanged input
+- **THEN** the next run is not skipped, requests that fund's composition once and uses it, and requests no composition of the other funds.

@@ -24,3 +24,4 @@ Branch `feature/net-cash-in-fund-compositions` from `origin/main`.
 
 - [x] 5.1 `scripts/dev.sh test` passes; `scripts/openspec validate net-cash-in-fund-compositions --strict` and `scripts/openspec validate --specs --strict` pass. Evidence: 471 tests, 0 failures; both validations report valid (9 specs passed).
 - [x] 5.2 Privacy scan of the diff (no real ISINs, names, amounts, paths, tokens); commit with Conventional Commits; push the branch and open a pull request into `main`; do not merge. Evidence: the scan of the staged diff found no real values, ISINs, home paths or tokens; pull request https://github.com/ulrichlehner/portfolio-lens/pull/4.
+- [x] 5.3 Merge and archive. Evidence: pull request 4 was merged into `main` on 2026-11-05 (merge commit 6b60a82, CI "Maven build" passed); the change was archived and its deltas synced into the main specs, and `scripts/openspec validate --specs --strict` passes.

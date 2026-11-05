@@ -31,8 +31,15 @@
     {
       "type": "node-terminal",
       "request": "launch",
-      "name": "Lens run and open the page (Docker, macOS host)",
-      "command": "scripts/dev.sh run && open scratch/out/index.html",
+      "name": "Lens run and open the page (Docker)",
+      "command": "scripts/dev.sh run && scripts/dev.sh page",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "node-terminal",
+      "request": "launch",
+      "name": "Open the page",
+      "command": "scripts/dev.sh page",
       "cwd": "${workspaceFolder}"
     },
     {

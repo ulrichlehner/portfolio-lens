@@ -201,13 +201,15 @@ scripts/dev.sh check
 scripts/dev.sh run
 ```
 
-The page is written to `scratch/out/index.html`; the cache lives in the Docker volume
+The page is written to `scratch/out/index.html`; `scripts/dev.sh page` opens it in the browser on
+the Mac. In a dev container terminal in VS Code it serves the page inside the container on
+`localhost:8765` (loopback only) and opens it through VS Code, which forwards the port to the Mac. The cache lives in the Docker volume
 `portfolio-lens-cache` (`scripts/dev.sh purge` removes it). Options after the command go to Lens,
 for example `scripts/dev.sh run --config <file>`.
 
 In VS Code, *Run and Debug* has the same commands: "Lens check (Docker)", "Lens run (Docker)",
-"Lens run and open the page (Docker, macOS host)" and "Tests (Docker)" work in a window on the
-Mac and in the dev container. "Lens run (debug)" and "Lens check (debug)" start Lens in the Java
+"Lens run and open the page (Docker)", "Open the page" and "Tests (Docker)" work in a window on
+the Mac and in the dev container. "Lens run (debug)" and "Lens check (debug)" start Lens in the Java
 debugger and work only in the dev container; they keep their cache in `scratch/cache`.
 
 A fresh Portfolio Performance workspace has no exchange rates until its first ECB download; until

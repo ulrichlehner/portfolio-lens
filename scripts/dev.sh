@@ -19,6 +19,8 @@ Usage: scripts/dev.sh <command>
                      to scratch/out/index.html
                      Both read scratch/lens.env and keep the cache in the Docker
                      volume $CACHE_VOLUME; options go to Lens, e.g. --config <file>
+  page               open scratch/out/index.html in the browser on the Mac; in the dev
+                     container it is served on localhost:8765 and opened through VS Code
   shell              interactive shell in the container
   clean              delete the build output
   purge              clean, then remove the Docker image and volumes
@@ -66,6 +68,27 @@ case "$cmd" in
             -v "$CACHE_VOLUME":/cache -v "$ROOT":/src -w /src \
             -e LENS_CACHE_DIR=/cache -e LENS_OUTPUT_DIR=/src/scratch/out \
             "$IMAGE" sh -c '.devcontainer/pp-forward.sh & sleep 0.3; exec java -jar target/portfolio-lens.jar "$@"' lens "$cmd" "$@"
+        ;;
+    page)
+        page="$ROOT/scratch/out/index.html"
+        [ -f "$page" ] || { echo "No page yet: run scripts/dev.sh run first" >&2; exit 1; }
+        if command -v open >/dev/null 2>&1; then
+            open "$page"
+        elif [ -n "${BROWSER:-}" ]; then
+            # Dev container: VS Code sets BROWSER to a helper that opens a link on the Mac. It
+            # does not open file:// links there, but it forwards a localhost port, so the page
+            # is served inside the container (loopback only) and opened through that port.
+            port="${LENS_PAGE_PORT:-8765}"
+            url="http://127.0.0.1:$port/index.html"
+            if ! curl -fs -o /dev/null "$url"; then
+                nohup jwebserver -b 127.0.0.1 -p "$port" -d "$ROOT/scratch/out" >/tmp/lens-page.log 2>&1 &
+                for _ in 1 2 3 4 5 6 7 8 9 10; do curl -fs -o /dev/null "$url" && break; sleep 0.5; done
+                curl -fs -o /dev/null "$url" || { echo "Could not serve the page, see /tmp/lens-page.log" >&2; exit 1; }
+            fi
+            "$BROWSER" "http://localhost:$port/index.html"
+        else
+            echo "Open $page in a browser"
+        fi
         ;;
     shell)
         image

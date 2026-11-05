@@ -42,6 +42,7 @@ portfolio-lens/
 | Build | `scripts/dev.sh package` |
 | Check the configuration against the local PP | `scripts/dev.sh check` |
 | One Lens run against the local PP | `scripts/dev.sh run` |
+| Open the page in the browser on the Mac | `scripts/dev.sh page` |
 | Shell in the container | `scripts/dev.sh shell` |
 | OpenSpec | `scripts/openspec list` |
 | Delete build output | `scripts/dev.sh clean` |

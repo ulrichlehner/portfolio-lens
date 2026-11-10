@@ -55,7 +55,7 @@
 - [x] 8.2 Open the synthetic page with scripts disabled and verify the "Scripts disabled" scenario
 - [x] 8.3 Open the synthetic page with a generation time older than one hour and verify that the staleness notice appears in the bar without moving content
 - [x] 8.4 Update the README paragraph on the page and the treemap (layout, chart tabs, group zoom, search) and verify that it describes only what the page does
-- [ ] 8.5 Run `scripts/dev.sh run` against the local Portfolio Performance and check the real page once; keep the output in `scratch/` only (open: Portfolio Performance was not running when the change was implemented)
+- [x] 8.5 Run `scripts/dev.sh run` against the local Portfolio Performance and check the real page once; keep the output in `scratch/` only
 
 ## 9. Version, privacy scan and pull request
 
@@ -70,7 +70,6 @@
 
 Open in this change:
 
-- Task 8.5: one run against a running Portfolio Performance and a look at the real page.
 - Tasks 9.5 and 9.6: push and pull request after the user authorizes it, then clean up.
 - Archive the change after the pull request is merged.
 

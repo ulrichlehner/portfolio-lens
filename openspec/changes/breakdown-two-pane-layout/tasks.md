@@ -68,6 +68,40 @@
 
 ## Workflow follow-up
 
+Open in this change:
+
+- Task 8.5: one run against a running Portfolio Performance and a look at the real page.
+- Tasks 9.5 and 9.6: push and pull request after the user authorizes it, then clean up.
 - Archive the change after the pull request is merged.
-- The entry point from Portfolio Performance to Lens (web app manifest shortcut or launcher) is set up in the server configuration, outside this repository.
-- Data correctness (company identity across share classes, company names, revenue regions, provider cross-checks) is the next change.
+
+Server setup, outside this repository:
+
+- Check that `LENS_APP_LINK_URL` is set on the server, so the page shows the link back.
+- Add an entry point from Portfolio Performance to Lens: a `shortcuts` entry in the web app manifest,
+  or a launcher in the page that wraps Portfolio Performance.
+- Check that `/lens/` lies inside the scope of the installed web app, so it opens in the same window.
+
+Next changes in this repository, in suggested order:
+
+- Company identity and names: group share classes and depositary receipts of one company (the
+  GLEIF LEI is already retrieved and not used for grouping), and take company names from the
+  provider profile instead of the upper-case names of fund holding rows.
+- Provider cross-check: compare the bottom-up sector and country totals of each fund with the
+  provider's own allocation (`etf/sectors`, `etf/countries`) and show deviations in the data status.
+- Revenue region and currency: one level of granularity for revenue regions, a smaller "Other or
+  unspecified" share, and a verified meaning of the profile currency.
+- Further provider and PP fields: fund profile (expense ratio, size, leveraged or inverse funds),
+  market capitalization (retrieved, not shown), price date per holding, account cash as a coverage
+  segment.
+
+Smaller items seen during this change:
+
+- The label of the Unknown and Pending groups shows the count twice, for example "Unknown (5) (5)".
+- A contribution reads "via X (origin: X)" when source and origin are the same fund.
+- "Partial coverage" is a permanent state, because provider weights are never treated as validated;
+  the attention marker therefore carries no signal.
+- Expanding a very large group builds all its rows at once; a limit with "show more" as in the
+  Company table would keep the page fast.
+- The embedded member lists of merged tiles (`m`) are no longer read and can be removed.
+- Behavior in the browser (sticky pane, column positions, tabs) is checked by hand; an automated
+  browser test would need a headless browser in the dev image.

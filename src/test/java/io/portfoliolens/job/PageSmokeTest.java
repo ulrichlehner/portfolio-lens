@@ -86,7 +86,7 @@ public class PageSmokeTest
                             svg.group().replace("<svg", "<svg xmlns=\"http://www.w3.org/2000/svg\"")
                                             .getBytes(StandardCharsets.UTF_8)));
         }
-        assertTrue(count >= 14, "coverage, two charts per grouping and the overlap matrix: " + count);
+        assertTrue(count >= 14, "coverage bar and two charts per grouping (7 groupings), plus the overlap matrix: " + count);
 
         // values are escaped
         assertFalse(page.contains("<script>alert(1)</script>"));
@@ -95,7 +95,7 @@ public class PageSmokeTest
         // nothing is loaded from the network
         assertFalse(Pattern.compile("(src|href)=\"(https?:)?//").matcher(page).find());
         assertFalse(page.contains("@import") || page.contains("url("));
-        assertEquals(2, page.split("<script").length - 1, "the data block and the inline script");
+        assertEquals(3, page.split("<script").length - 1, "the js class script, the data block and the main script");
 
         // no secrets or paths
         assertFalse(page.contains(TOKEN));
@@ -114,9 +114,10 @@ public class PageSmokeTest
                         + " style=\"background:linear-gradient(to right,#2CA02C,#1F77B4)\"></span> Through funds"));
         assertTrue(page.contains("<span class=\"legend-caption\">Bar color:</span>"));
         assertTrue(page.contains("class=\"tm-tile\" fill=\"#"));
-        var overlap = page.substring(page.indexOf("<section class=\"overlap\">"),
-                        page.indexOf("</section>", page.indexOf("<section class=\"overlap\">")));
-        assertFalse(overlap.contains("chart-legend"), "no legend for the overlap matrix");
+        var overlapStart = page.indexOf("<figure class=\"chart\" data-chart=\"overlap\"");
+        var overlap = page.substring(overlapStart, page.indexOf("</figure>", overlapStart));
+        assertFalse(overlap.contains("legend-caption"), "no colour legend for the overlap matrix");
+        assertFalse(overlap.substring(0, overlap.indexOf('>')).contains("hidden"), "the overlap figure is never hidden");
         // same-coloured tiles are separated by a stroke
         assertTrue(page.contains("stroke:var(--bg);stroke-width:1;vector-effect:non-scaling-stroke"));
         assertTrue(page.contains("<select id=\"grouping\" disabled>"));
@@ -127,6 +128,8 @@ public class PageSmokeTest
         assertTrue(page.contains("<details id=\"data-status\">"));
         assertTrue(page.contains("@media (prefers-color-scheme:dark)"));
         assertFalse(page.contains("Market classification"));
+
+        assertStructure(page);
 
         // the inline script parses (Node.js runs in the dev image)
         var script = page.substring(page.lastIndexOf("<script>") + "<script>".length(), page.lastIndexOf("</script>"));
@@ -156,7 +159,7 @@ public class PageSmokeTest
         assertFalse(header.contains("target="));
         assertFalse(page.contains("PP & Co <test>"));
         assertEquals(1, page.split("app-link\"").length - 1);
-        assertEquals(2, page.split("<script").length - 1, "the link adds no script");
+        assertEquals(3, page.split("<script").length - 1, "the link adds no script");
         assertFalse(page.contains("prefetch") || page.contains("<link "));
     }
 
@@ -165,6 +168,122 @@ public class PageSmokeTest
     {
         var page = render();
         assertFalse(page.contains("<p class=\"app-link\">"));
-        assertTrue(page.contains("</time></p><p id=\"stale\""), "the header is unchanged");
+        var header = page.substring(page.indexOf("<header"), page.indexOf("</header>"));
+        assertFalse(header.contains("app-link"), "no link and no placeholder in the header");
+        assertTrue(Pattern.compile("<input type=\"search\"[^>]*>\\s*</div>").matcher(header).find(),
+                        "the search input is directly followed by the end of the bar line");
+    }
+
+    private static int occurrences(String text, String part)
+    {
+        int count = 0;
+        for (int at = text.indexOf(part); at >= 0; at = text.indexOf(part, at + part.length()))
+            count++;
+        return count;
+    }
+
+    private static final String[] GROUPINGS = { "COMPANY", "COUNTRY", "REGION", "SECTOR", "INDUSTRY", "CURRENCY",
+                    "REVENUE_REGION" };
+
+    private static void assertStructure(String page)
+    {
+        // a. one overlap figure, inside the chart pane
+        var overlap = "data-chart=\"overlap\"";
+        assertEquals(1, occurrences(page, "<figure class=\"chart\" " + overlap), "one overlap figure");
+        var paneStart = page.indexOf("<div class=\"chart-pane\"");
+        var tablePane = page.indexOf("<div class=\"table-pane\">");
+        assertTrue(paneStart >= 0 && tablePane > paneStart);
+        var at = page.indexOf("<figure class=\"chart\" " + overlap);
+        assertTrue(at > paneStart && at < tablePane, "the overlap figure lies in the chart pane");
+
+        // b. per grouping one treemap, one bars figure and one view; only COMPANY is visible
+        for (var grouping : GROUPINGS)
+        {
+            var hidden = grouping.equals("COMPANY") ? ">" : " hidden>";
+            for (var kind : new String[] { "treemap", "bars" })
+            {
+                var figure = "<figure class=\"chart\" data-chart=\"" + kind + "\" data-grouping=\"" + grouping + "\"";
+                assertEquals(1, occurrences(page, figure), kind + " figure of " + grouping);
+                assertTrue(page.contains(figure + hidden), kind + " figure of " + grouping + " visibility");
+            }
+            var view = Pattern.compile("<section class=\"view\" id=\"view-" + grouping + "\"[^>]*>").matcher(page);
+            assertTrue(view.find(), "view of " + grouping);
+            assertEquals(grouping.equals("COMPANY") ? 0 : 1, view.group().endsWith(" hidden>") ? 1 : 0,
+                            "view visibility of " + grouping);
+            assertFalse(view.find(), "one view of " + grouping);
+        }
+        assertEquals(GROUPINGS.length, occurrences(page, "<section class=\"view\""));
+
+        // c. treemap and bars of the Company grouping have the same box
+        var treemapBox = Pattern.compile("<svg class=\"treemap\" data-grouping=\"COMPANY\" viewBox=\"([^\"]*)\"")
+                        .matcher(page);
+        var barsBox = Pattern.compile("<figure class=\"chart\" data-chart=\"bars\" data-grouping=\"COMPANY\"[\\s\\S]*?"
+                        + "<svg class=\"bars\" viewBox=\"([^\"]*)\"").matcher(page);
+        assertTrue(treemapBox.find() && barsBox.find(), "both Company charts are drawn");
+        assertEquals(treemapBox.group(1), barsBox.group(1));
+        assertEquals("0 0 640 380", treemapBox.group(1));
+
+        // d. all breakdown tables have the same head cell classes
+        var heads = Pattern.compile("<table class=\"breakdown\"[^>]*><thead>([\\s\\S]*?)</thead>").matcher(page);
+        var first = (String) null;
+        int tables = 0;
+        while (heads.find())
+        {
+            tables++;
+            var classes = new java.util.ArrayList<String>();
+            var th = Pattern.compile("<th class=\"([^\"]*)\"").matcher(heads.group(1));
+            while (th.find())
+                classes.add(th.group(1));
+            var sequence = String.join("|", classes);
+            if (first == null)
+                first = sequence;
+            assertEquals(first, sequence);
+        }
+        assertEquals(GROUPINGS.length, tables);
+        assertEquals("rank|name|num|num|num|num share", first);
+
+        // e. every company block has a detail row with the contributions
+        var blocks = Pattern.compile("<tbody class=\"block company\"[\\s\\S]*?</tbody>").matcher(page);
+        int companies = 0;
+        while (blocks.find())
+        {
+            companies++;
+            assertTrue(blocks.group().contains("<tr class=\"detail\">"), "detail row");
+            assertTrue(blocks.group().contains("<ul class=\"contrib\">"), "contributions list");
+            assertTrue(blocks.group().indexOf("<tr class=\"detail\">") < blocks.group().indexOf("<ul class=\"contrib\">"));
+        }
+        assertTrue(companies > 0, "company blocks");
+
+        // f. a grouped treemap has one zoom overlay per group, the Company treemap none
+        var maps = Pattern.compile("<svg class=\"treemap\" data-grouping=\"([A-Z_]+)\"[\\s\\S]*?</svg>").matcher(page);
+        int grouped = 0;
+        while (maps.find())
+        {
+            var groups = occurrences(maps.group(), "class=\"tm-group\"");
+            var zooms = occurrences(maps.group(), "class=\"tm-zoom\"");
+            if (maps.group(1).equals("COMPANY"))
+                assertEquals(0, zooms, "no overlays in the Company treemap");
+            else if (groups > 0)
+            {
+                grouped++;
+                assertEquals(groups, zooms, "overlays of " + maps.group(1));
+            }
+        }
+        assertTrue(grouped > 0, "at least one grouped treemap");
+
+        // g. the chart tabs
+        for (var tab : new String[] { "treemap", "bars", "overlap" })
+            assertTrue(page.contains("role=\"tab\" id=\"tab-" + tab + "\" data-chart=\"" + tab + "\""), tab);
+
+        // h. explanations and the rows of the data status
+        assertTrue(page.contains("<details class=\"hint\">"));
+        var funds = page.indexOf("<table class=\"funds\"");
+        assertTrue(funds >= 0, "fund table");
+        var fundTable = page.substring(funds, page.indexOf("</table>", funds));
+        assertTrue(fundTable.contains("title=\"") && fundTable.contains("<tr class=\"detail\">"));
+
+        // i. stable layout
+        assertTrue(page.contains("table-layout:fixed"));
+        assertTrue(page.contains("scrollbar-gutter:stable"));
     }
 }

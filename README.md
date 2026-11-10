@@ -162,11 +162,18 @@ Overlapping runs are safe: a run that finds another one active exits without cha
 - `LENS_OUTPUT_DIR`: `index.html` and `status.json`. The page contains your holdings and values;
   serve it only behind authentication.
 
+The page has a bar that stays at the top (grouping, company search, the application link, generation
+time) and, on screens at least 1100 pixels wide, two panes: the chart on the left stays in view while
+the table on the right scrolls. Tabs switch the chart between treemap, the 20 largest and the fund
+overlap. In a grouped treemap a click on a group shows that group's companies; a breadcrumb, the Back
+button or Escape lead back. Companies too small for their own tile share one tile whose area is their
+total value; it shows their number and share, and clicking it (or Enter) explores them. Grouping,
+chart tab and treemap level are kept in the page address.
+
 The page holds every company once, in its embedded data, and renders the 200 largest rows; further
-rows, the companies of a group and small treemap companies are built on demand. In the treemap,
-companies too small for their own tile share one tile whose area is their total value; it shows
-their number and share, and clicking it (or Enter) explores them, Escape goes back. For 4,000 companies
-it is about 1.4 MB, about 0.2 MB compressed. Serve it compressed, for example with Caddy:
+rows, the companies of a group, search results and treemap levels are built on demand. Without
+scripts it shows the Company grouping with all three charts below each other. For 4,000 companies
+it is about 1.6 MB, about 0.3 MB compressed. Serve it compressed, for example with Caddy:
 
 ```
 handle_path /lens/* {

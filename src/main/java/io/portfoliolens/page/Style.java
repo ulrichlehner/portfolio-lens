@@ -202,11 +202,11 @@ final class Style
                     .view-notice{color:var(--muted);margin:0 0 8px}.empty{color:var(--muted)}
                     .status{border-top:2px solid var(--line);margin-top:16px;padding-top:8px}
                     .status summary{font-weight:600;padding:4px 0}.status #data-status>summary.warning{color:var(--warn-line)}
-                    .status table summary{font-weight:400;padding:0}
+                    .status table summary{font-weight:400;padding:0 0 0 16px}
                     .status-line,.status-explanation{color:var(--muted);margin:6px 0}
                     .status-explanation{white-space:pre-line}
                     .status-warning{background:var(--warn-bg);padding:6px 10px;border-radius:var(--r);margin:6px 0}
-                    table.funds{margin-top:8px}table.funds th.retrieved{width:9em}table.funds th.num{width:8em}
+                    table.funds{margin-top:8px}table.funds th.retrieved{width:13em}table.funds tr.top>td:nth-child(3){white-space:nowrap}table.funds th.num{width:8em}
                     .health-ok{color:var(--cov-companies)}.health-warning{color:var(--warn-line)}.health-error{color:var(--cov-unresolved)}
                     footer{border-top:1px solid var(--line);margin-top:24px;padding-top:8px;color:var(--muted);font-size:12px}
                     @container (max-width:640px){table.breakdown tr.top>td:nth-child(3),table.breakdown tr.top>td:nth-child(4),
@@ -217,6 +217,8 @@ final class Style
                     .bar-main{flex-wrap:wrap;height:62px;gap:4px 8px;align-content:flex-start}
                     .bar-main h1,.bar-main label{flex:1 1 60%;height:26px;line-height:26px;margin:0}
                     .app-link{order:1}#grouping{order:2;flex:0 1 auto;min-width:0}#search{order:3;flex:1 1 90px}
-                    .summary dd{font-size:16px}th,td{padding:4px}th.rank{width:calc(4ch + 8px)}}
+                    .summary dd{font-size:16px}th,td{padding:4px}th.rank{width:calc(4ch + 8px)}
+                    table.funds th.retrieved{width:6.5em}table.funds th.num{width:5.5em}
+                    table.funds tr.top>td:nth-child(3){white-space:normal;overflow-wrap:normal}}
                     """;
 }

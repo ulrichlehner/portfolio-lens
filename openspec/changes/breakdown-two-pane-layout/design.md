@@ -250,6 +250,19 @@ one page, and it is not needed to test the logic that can go wrong silently.
 - D9: the bar has two lines of fixed height (three below 700 pixels); the staleness notice is the
   first element of the second line and shortens the file and date text next to it.
 
+- After the first review of the real page: the visible heading of the bar is the "Breakdown by"
+  label with the selector, and the `h1` that names the grouping is kept for assistive technology,
+  the page title and the page without scripts. This removes the grouping being named twice.
+- Summary figures are cards, and the notices open from a chip as one list. The notice line that
+  repeated the chip's text is left out.
+- The stylesheet has a small design system (tokens for surfaces, text, accent, radii, control
+  height and shadow; controls, cards and chips built from them). `AGENTS.md` names the rule.
+- The merged tile of small companies is a muted blue instead of grey.
+- The rank column is four digits wide and does not wrap.
+- D4: in a narrow table pane the direct and indirect cells are collapsed to zero width instead of
+  removed. Removing them left two empty columns from the detail rows' column span, which took the
+  width of the name column.
+
 ## Migration Plan
 
 No data or configuration migration. The next run that writes the page produces the new layout; a

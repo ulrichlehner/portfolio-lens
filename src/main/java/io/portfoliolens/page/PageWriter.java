@@ -239,23 +239,25 @@ public final class PageWriter
         s.fundsText().ifPresent(text -> item(Texts.LookThroughSummaryFunds, text, Optional.empty()));
         s.effective().ifPresent(effective -> item(Texts.LookThroughSummaryConcentration, effective.text(),
                         Optional.of(effective.tooltip())));
-        s.largest().ifPresent(largest -> item(Texts.LookThroughSummaryLargest,
-                        largest.name() + " " + largest.shareText(), Optional.of(Texts.LookThroughSummaryLargestTooltip)));
+        s.largest().ifPresent(largest -> item(Texts.LookThroughSummaryLargest, largest.shareText(),
+                        Optional.of(Texts.LookThroughSummaryLargestTooltip), largest.name()));
         add("</dl>");
         add("<details class=\"notices", s.attention() ? " attention" : "", "\"><summary>",
                         s.attention() ? "&#9888; " : "&#9432; ", e(model.completenessText()), "</summary>");
+        add("<ul>");
         for (var line : noticeLines(model))
-            add("<p>", e(line), "</p>");
+            if (!line.equals(model.completenessText()))
+                add("<li>", e(line), "</li>");
         if (input.accountCash().getAmount() != 0)
-            add("<p>", e("Account cash not included: "
+            add("<li>", e("Account cash not included: "
                             + LookThroughViewPresenter.formatAmount(BigDecimal.valueOf(input.accountCash().getAmount()),
-                                            input.accountCash().getCurrencyCode())), "</p>");
+                                            input.accountCash().getCurrencyCode())), "</li>");
         if (!input.unsupportedHoldingTypes().isEmpty())
-            add("<p>", e(input.unsupportedHoldingTypes().size() + " holding(s) of a type Lens does not know were not"
+            add("<li>", e(input.unsupportedHoldingTypes().size() + " holding(s) of a type Lens does not know were not"
                             + " analysed: " + String.join(", ", new LinkedHashSet<>(input.unsupportedHoldingTypes()))),
-                            "</p>");
-        add("<p>", e("Current valuations are combined with the composition dates shown in the data status."),
-                        "</p></details></section>\n");
+                            "</li>");
+        add("<li>", e("Current valuations are combined with the composition dates shown in the data status."),
+                        "</li></ul></details></section>\n");
     }
 
     /** The net cash of funds row of the table, when the result has net cash. */
@@ -292,8 +294,15 @@ public final class PageWriter
 
     private void item(String label, String value, Optional<String> tooltip)
     {
+        item(label, value, tooltip, "");
+    }
+
+    /** A summary figure; the note is a second, smaller line below the value. */
+    private void item(String label, String value, Optional<String> tooltip, String note)
+    {
         add("<div><dt>", e(label), "</dt><dd><span", tooltip.map(t -> " title=\"" + e(t) + "\"").orElse(""), ">",
-                        e(value), "</span>", tooltip.map(PageWriter::hint).orElse(""), "</dd></div>");
+                        e(value), "</span>", tooltip.map(PageWriter::hint).orElse(""),
+                        note.isEmpty() ? "" : "<small>" + e(note) + "</small>", "</dd></div>");
     }
 
     /** An explanation that opens on click, tap or keyboard, laid over the page so nothing moves. */

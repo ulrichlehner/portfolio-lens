@@ -152,6 +152,18 @@ Portfolio Lens follows [Semantic Versioning 2.0.0](https://semver.org/).
   `BREAKING CHANGE:` footer MAJOR (MINOR before `1.0.0`). Name an interface change in the commit
   body and in the pull request.
 
+## Page design
+
+The page has a small design system, described at the top of
+`src/main/java/io/portfoliolens/page/Style.java`: tokens on `:root` (surfaces, text, one accent
+colour for everything interactive, two corner radii, one control height, one shadow) and four
+building blocks (controls, cards, chips, type sizes).
+
+- New page elements use these tokens and blocks. Add no colour, radius, control height or shadow
+  value outside `:root`.
+- Chart colours are data colours. Do not use them for controls, and do not use the accent for data.
+- Every colour token has a light and a dark value.
+
 ## Writing texts
 
 - Code, comments, commits, docs and specs in English.

@@ -57,7 +57,7 @@
 - [x] 8.2 Run `scripts/dev.sh test` and verify that all tests pass
 - [x] 8.3 Scan the diff for personal data (names, amounts, holdings, ISINs of a real portfolio, keys, tokens) and verify that `scratch/` is not staged
 - [x] 8.4 Commit with Conventional Commits (`feat(page): ...`), stating in the body that no setting, exit status, `status.json` field or cache format changes
-- [ ] 8.5 After the user authorizes it, push the branch and open the pull request into `main`, naming the changed `breakdown-view` requirements
+- [x] 8.5 After the user authorizes it, push the branch and open the pull request into `main`, naming the changed `breakdown-view` requirements
 - [ ] 8.6 Run `scripts/dev.sh clean` and delete `scratch/demo`
 
 ## Workflow follow-up
@@ -69,7 +69,7 @@ Open in this change:
 - Task 7.1: without scripts the structure is verified from the page source (three sections shown,
   section links are plain anchors, both Company charts shown). The rendered page without scripts
   could not be shown in the preview; check once in a browser with scripts disabled.
-- Tasks 8.5 and 8.6: push and pull request after the user authorizes it, then clean up.
+- Task 8.6: clean up.
 
 - Archive the change after the pull request is merged.
 - Next change for the table and treemap: share bars in table rows, a second line under company

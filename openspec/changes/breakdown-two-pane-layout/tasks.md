@@ -63,14 +63,14 @@
 - [x] 9.2 Run `scripts/dev.sh test` and verify that all tests pass
 - [x] 9.3 Scan the diff for personal data (names, amounts, holdings, ISINs of a real portfolio, keys, tokens) and verify that `scratch/` is not staged
 - [x] 9.4 Commit with Conventional Commits (`feat(page): ...`), stating in the body that no setting, exit status, `status.json` field or cache format changes
-- [ ] 9.5 After the user authorizes it, push the branch and open the pull request into `main`, naming the changed `breakdown-view` requirements
+- [x] 9.5 After the user authorizes it, push the branch and open the pull request into `main`, naming the changed `breakdown-view` requirements
 - [ ] 9.6 Run `scripts/dev.sh clean` and delete `scratch/demo`
 
 ## Workflow follow-up
 
 Open in this change:
 
-- Tasks 9.5 and 9.6: push and pull request after the user authorizes it, then clean up.
+- Task 9.6: clean up.
 - Archive the change after the pull request is merged.
 
 Server setup, outside this repository:

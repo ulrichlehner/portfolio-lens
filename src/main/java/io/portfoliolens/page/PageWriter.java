@@ -53,6 +53,10 @@ public final class PageWriter
     public static final String PAGE = "index.html";
     public static final String TITLE = "Breakdown by Company";
 
+    /** The page sections in their order: element id and heading. */
+    private static final String[][] SECTIONS = { { "exposure", "Exposure" }, { "funds", "Funds" },
+                    { "quality", "Data quality" } };
+
     /** Settings named on the page; their values never appear. */
     private static final String KEY_SETTING = "LENS_EULERPOOL_API_KEY";
     private static final String CONFIRMATION = "LENS_EULERPOOL_LOCAL_STORAGE_CONFIRMED=true";
@@ -143,10 +147,14 @@ public final class PageWriter
                         // set before the first paint, so styles that need the script apply at once
                         "<title>", TITLE, "</title>\n<script>document.documentElement.className='js'</script>\n<style>",
                         Style.CSS, "</style>\n</head>\n<body>\n");
+        var unconfirmed = input.provider() == ProviderState.UNCONFIRMED;
+        var statusRows = LookThroughDataStatus.listed(input.dataStatus(), company.directlyClassified());
+        // statuses of an unconfirmed provider are not used, so they raise no warning
+        var quality = DataQuality.of(unconfirmed ? List.of() : statusRows, company);
         header(company);
         banner();
-        summary(company);
-        coverage(company);
+        add("<section id=\"exposure\" class=\"page-section\"><h2>", SECTIONS[0][1], "</h2>\n");
+        summary(company, quality);
         var companyNotices = noticeLines(company);
         for (var model : models.values())
         {
@@ -159,12 +167,16 @@ public final class PageWriter
         tabs();
         for (var entry : models.entrySet())
             charts(entry.getKey(), entry.getValue());
-        overlap(netCash(company).isPresent());
         add("</div>\n<div class=\"table-pane\">");
         for (var entry : models.entrySet())
             view(entry.getKey(), entry.getValue(), companyNotices);
-        add("</div>\n</main>\n");
-        dataStatus(company);
+        add("</div>\n</main>\n</section>\n");
+        funds(company, statusRows, unconfirmed);
+        add("<section id=\"quality\" class=\"page-section\"><h2>", SECTIONS[2][1], "</h2>\n");
+        coverage(company);
+        notices(company);
+        dataStatus(company, statusRows, unconfirmed);
+        add("</section>\n");
         add("<footer><p>Portfolio Lens is an independent project. It is not part of Portfolio Performance and is not",
                         " supported by the Portfolio Performance maintainers. It is not affiliated with any data provider.",
                         " Provider permissions and data completeness are not verified.</p>",
@@ -191,7 +203,11 @@ public final class PageWriter
         for (var grouping : Grouping.values())
             add("<option value=\"", grouping.name(), "\">", e(grouping.label()), "</option>");
         add("</select><input type=\"search\" id=\"search\" class=\"needs-js\" placeholder=\"Find company\"",
-                        " aria-label=\"Find company\" autocomplete=\"off\" spellcheck=\"false\">", appLink(), "</div>",
+                        " aria-label=\"Find company\" autocomplete=\"off\" spellcheck=\"false\">",
+                        "<nav class=\"sections\" aria-label=\"Sections\">");
+        for (var section : SECTIONS)
+            add("<a href=\"#", section[0], "\" data-section=\"", section[0], "\">", section[1], "</a>");
+        add("</nav>", appLink(), "</div>",
                         "<p class=\"meta\"><span id=\"stale\" class=\"stale\" hidden></span>Portfolio Lens &middot; ",
                         e(input.fileLabel()), " &middot; ", e(company.summary().asOfText()), " &middot; Generated ",
                         "<time id=\"generated\" datetime=\"", input.generatedAt().toString(), "\">",
@@ -227,27 +243,39 @@ public final class PageWriter
         add("</div>\n");
     }
 
-    private void summary(Model model)
+    /** Figures about the portfolio, and one line on the data quality that leads to its section. */
+    private void summary(Model model, DataQuality quality)
     {
         var s = model.summary();
-        add("<section class=\"summary\"><dl>");
-        item(Texts.LookThroughSummaryValue, s.valueText(), Optional.empty());
-        item(Texts.LookThroughSummaryResolved, s.resolvedText().orElse("–"), Optional.of(model.completenessText()));
+        add("<div class=\"summary\"><dl>");
+        item(Texts.LookThroughSummaryValue, s.valueText(), Optional.empty(), "", false);
         netCash(model).ifPresent(row -> item(Texts.LookThroughCategoryNetCash, amountAndShare(model, row),
-                        Optional.of(Texts.LookThroughNetCashTooltip)));
-        item(Texts.LookThroughSummaryTopTen, s.topTenText().orElse("–"), Optional.empty());
-        s.fundsText().ifPresent(text -> item(Texts.LookThroughSummaryFunds, text, Optional.empty()));
-        s.effective().ifPresent(effective -> item(Texts.LookThroughSummaryConcentration, effective.text(),
-                        Optional.of(effective.tooltip())));
+                        Optional.of(Texts.LookThroughNetCashTooltip), "", false));
+        item(Texts.LookThroughSummaryTopTen, s.topTenText().orElse("–"), Optional.empty(), "", false);
         s.largest().ifPresent(largest -> item(Texts.LookThroughSummaryLargest, largest.shareText(),
-                        Optional.of(Texts.LookThroughSummaryLargestTooltip), largest.name()));
+                        Optional.of(Texts.LookThroughSummaryLargestTooltip + (s.largestDominant()
+                                        ? "\n" + MessageFormat.format(Texts.LookThroughNoticeConcentration,
+                                                        largest.name(), largest.shareText())
+                                        : "")),
+                        largest.name(), s.largestDominant()));
+        s.effective().ifPresent(effective -> item(Texts.LookThroughSummaryConcentration, effective.text(),
+                        Optional.of(effective.tooltip()),
+                        MessageFormat.format(Texts.LookThroughSummaryConcentrationBasis, effective.companies()), false));
         add("</dl>");
-        add("<details class=\"notices", s.attention() ? " attention" : "", "\"><summary>",
-                        s.attention() ? "&#9888; " : "&#9432; ", e(model.completenessText()), "</summary>");
-        add("<ul>");
+        var line = Texts.LookThroughSummaryResolved + " " + s.resolvedText().orElse("–")
+                        + s.fundsText().map(text -> " · " + text + " funds").orElse("");
+        add("<a class=\"chip quality-line", quality.attention() ? " attention" : "", "\" href=\"#quality\"",
+                        " data-section=\"quality\">", quality.attention() ? "<span>&#9888;</span>" : "", "<span>", e(line),
+                        "</span>", quality.problemText().map(text -> "<span>· " + e(text) + "</span>").orElse(""),
+                        "</a></div>\n");
+    }
+
+    /** The notes on the calculation, as one list in the Data quality section. */
+    private void notices(Model model)
+    {
+        add("<ul class=\"notices\">");
         for (var line : noticeLines(model))
-            if (!line.equals(model.completenessText()))
-                add("<li>", e(line), "</li>");
+            add("<li>", e(line), "</li>");
         if (input.accountCash().getAmount() != 0)
             add("<li>", e("Account cash not included: "
                             + LookThroughViewPresenter.formatAmount(BigDecimal.valueOf(input.accountCash().getAmount()),
@@ -256,8 +284,8 @@ public final class PageWriter
             add("<li>", e(input.unsupportedHoldingTypes().size() + " holding(s) of a type Lens does not know were not"
                             + " analysed: " + String.join(", ", new LinkedHashSet<>(input.unsupportedHoldingTypes()))),
                             "</li>");
-        add("<li>", e("Current valuations are combined with the composition dates shown in the data status."),
-                        "</li></ul></details></section>\n");
+        add("<li>", e("Current valuations are combined with the composition dates shown in the fund table."),
+                        "</li></ul>\n");
     }
 
     /** The net cash of funds row of the table, when the result has net cash. */
@@ -292,17 +320,13 @@ public final class PageWriter
         return lines;
     }
 
-    private void item(String label, String value, Optional<String> tooltip)
+    /** A summary figure; the note is a second, smaller line, the mark flags a figure that needs attention. */
+    private void item(String label, String value, Optional<String> tooltip, String note, boolean marked)
     {
-        item(label, value, tooltip, "");
-    }
-
-    /** A summary figure; the note is a second, smaller line below the value. */
-    private void item(String label, String value, Optional<String> tooltip, String note)
-    {
-        add("<div><dt>", e(label), "</dt><dd><span", tooltip.map(t -> " title=\"" + e(t) + "\"").orElse(""), ">",
-                        e(value), "</span>", tooltip.map(PageWriter::hint).orElse(""),
-                        note.isEmpty() ? "" : "<small>" + e(note) + "</small>", "</dd></div>");
+        add("<div><dt>", e(label), "</dt><dd>", marked ? "<span class=\"card-mark\">&#9888;</span>" : "", "<span",
+                        tooltip.map(t -> " title=\"" + e(t) + "\"").orElse(""), ">", e(value), "</span>",
+                        tooltip.map(PageWriter::hint).orElse(""), note.isEmpty() ? "" : "<small>" + e(note) + "</small>",
+                        "</dd></div>");
     }
 
     /** An explanation that opens on click, tap or keyboard, laid over the page so nothing moves. */
@@ -314,7 +338,7 @@ public final class PageWriter
 
     private void coverage(Model model)
     {
-        add("<section class=\"coverage\"><h2>", e(Texts.LookThroughCoverageCaption.replace(":", "")), "</h2>");
+        add("<section class=\"coverage\"><h3>", e(Texts.LookThroughCoverageCaption.replace(":", "")), "</h3>");
         if (model.coverage().isEmpty())
         {
             add("<p>", e(model.empty() ? Texts.LookThroughLabelEmptyPortfolio : Texts.LookThroughCoverageUnavailable),
@@ -361,8 +385,8 @@ public final class PageWriter
     private void tabs()
     {
         add("<div class=\"tabs needs-js\" role=\"tablist\" aria-label=\"Chart\">");
-        var kinds = List.of("treemap", "bars", "overlap");
-        var labels = List.of(Texts.LookThroughChartTreemap, Texts.LookThroughChartTopCompanies, Texts.LookThroughChartOverlap);
+        var kinds = List.of("treemap", "bars");
+        var labels = List.of(Texts.LookThroughChartTreemap, Texts.LookThroughChartTopCompanies);
         for (int i = 0; i < kinds.size(); i++)
             add("<button type=\"button\" role=\"tab\" id=\"tab-", kinds.get(i), "\" data-chart=\"", kinds.get(i),
                             "\" aria-selected=\"", i == 0 ? "true" : "false", "\" tabindex=\"", i == 0 ? "0" : "-1", "\">",
@@ -423,6 +447,7 @@ public final class PageWriter
         for (var line : noticeLines(model))
             if (!companyNotices.contains(line))
                 add("<p class=\"view-notice\">", e(line), "</p>");
+        add("<p class=\"table-unit\">Amounts in ", e(model.currencyCode()), "</p>");
         table(grouping, model);
         add("</section>\n");
     }
@@ -732,12 +757,11 @@ public final class PageWriter
         var currency = model.currencyCode();
         var second = grouping == Grouping.COMPANY ? Texts.LookThroughColumnCompany
                         : MessageFormat.format(Texts.LookThroughColumnGrouped, grouping.label());
-        var unit = " (" + currency + ")";
         add("<table class=\"breakdown\" data-grouping=\"", grouping.name(), "\"><thead><tr><th class=\"rank\">",
                         e(Texts.LookThroughColumnRank), "</th><th class=\"name\" data-sort=\"label\">", e(second),
-                        "</th><th class=\"num\" data-sort=\"direct\">", e(Texts.LookThroughColumnDirect + unit),
-                        "</th><th class=\"num\" data-sort=\"indirect\">", e(Texts.LookThroughColumnIndirect + unit),
-                        "</th><th class=\"num\" data-sort=\"total\">", e(Texts.LookThroughColumnTotal + unit),
+                        "</th><th class=\"num\" data-sort=\"direct\">", e(Texts.LookThroughColumnDirect),
+                        "</th><th class=\"num\" data-sort=\"indirect\">", e(Texts.LookThroughColumnIndirect),
+                        "</th><th class=\"num\" data-sort=\"total\">", e(Texts.LookThroughColumnTotal),
                         "</th><th class=\"num share\" data-sort=\"total\" title=\"", e(Texts.LookThroughColumnShare),
                         "\">Share</th></tr></thead>");
         int rank = 0;
@@ -840,10 +864,11 @@ public final class PageWriter
      * @param note
      *            whether the other charts have a note line, which this one then keeps empty
      */
-    private void overlap(boolean note)
+    private void overlap()
     {
+        var note = false;
         var model = LookThroughOverlapModel.of(input.overlap());
-        add("<figure class=\"chart\" data-chart=\"overlap\"><div class=\"chart-head\"><span class=\"chart-caption\">",
+        add("<figure class=\"chart funds-overlap\" data-chart=\"overlap\"><div class=\"chart-head\"><span class=\"chart-caption\">",
                         e(Texts.LookThroughChartOverlap), "</span></div><div class=\"chart-box\">");
         if (model.isEmpty())
             add("<p class=\"empty\">", e(Texts.LookThroughOverlapNeedTwoFunds), "</p>");
@@ -888,20 +913,47 @@ public final class PageWriter
                         note ? "<p class=\"chart-note\">&nbsp;</p>" : "", "</figure>\n");
     }
 
-    private void dataStatus(Model company)
+    /** The Funds section: one row per held fund, largest first, and the overlap matrix of the funds. */
+    private void funds(Model company, List<FundStatus> rows, boolean unconfirmed)
+    {
+        add("<section id=\"funds\" class=\"page-section\"><h2>", SECTIONS[1][1], "</h2>\n");
+        var funds = FundRows.funds(input.result(), company, rows);
+        if (funds.isEmpty())
+            add("<p class=\"empty\">No fund is held.</p>");
+        else
+        {
+            add("<table class=\"funds\"><thead><tr><th class=\"name\">Fund</th><th class=\"num\">Value (",
+                            e(company.currencyCode()), ")</th><th class=\"num\">Share</th><th class=\"num\">Companies</th>",
+                            "<th class=\"num\">", e(Texts.LookThroughStatusColumnShare), "</th><th class=\"retrieved\">",
+                            e(Texts.LookThroughStatusColumnRetrieved), "</th><th class=\"state\">",
+                            e(Texts.LookThroughStatusColumnStatus), "</th></tr></thead>");
+            for (var fund : funds)
+            {
+                var status = fund.status();
+                statusRow(status, unconfirmed, 7, "<td class=\"num\">" + e(fund.valueText()) + "</td><td class=\"num\">"
+                                + e(fund.shareText()) + "</td><td class=\"num\">" + e(unconfirmed ? "–" : fund.companiesText())
+                                + "</td><td class=\"num\">" + e(unconfirmed ? "–" : fund.lookedThroughText()) + "</td><td>"
+                                + e(unconfirmed ? "" : status.retrievedDateText().orElse("")) + "</td>");
+            }
+            add("</table>\n");
+            overlap();
+        }
+        add("</section>\n");
+    }
+
+    /** The data status: the outcome of the run, storage and provider lines, and securities still unclassified. */
+    private void dataStatus(Model company, List<FundStatus> rows, boolean unconfirmed)
     {
         var status = input.dataStatus();
-        var rows = LookThroughDataStatus.listed(status, company.directlyClassified());
         var clock = Clock.fixed(input.generatedAt(), input.zone());
         var summaryRow = LookThroughDataStatus.summaryRow(rows, clock);
-        var unconfirmed = input.provider() == ProviderState.UNCONFIRMED;
         var rowText = unconfirmed ? "Provider data not used: local storage not confirmed"
                         : summaryRow.map(LookThroughDataStatus.SummaryRow::text).orElse("No funds to break down");
         if (input.pendingLookups() > 0)
             rowText += " · " + input.pendingLookups() + " lookup(s) pending for a later run"
                             + input.nextAttempt().map(at -> ", next attempt " + time(at)).orElse("");
         var warning = unconfirmed || summaryRow.map(LookThroughDataStatus.SummaryRow::warning).orElse(false);
-        add("<section class=\"status\"><details id=\"data-status\"><summary class=\"", warning ? "warning" : "", "\"",
+        add("<div class=\"status\"><details id=\"data-status\"><summary class=\"", warning ? "warning" : "", "\"",
                         summaryRow.map(r -> " title=\"" + e(r.tooltip()) + "\"").orElse(""), ">",
                         warning ? "&#9888; " : "", e(rowText), "</summary>");
         // the tooltip of the closed row, as text once the data status is open
@@ -927,21 +979,23 @@ public final class PageWriter
                             line.warningTooltip().filter(t -> !t.isBlank()).map(PageWriter::hint).orElse(""), "</div>"));
         else
             status.limitationText().ifPresent(text -> add("<p class=\"status-warning\">&#9888; ", e(text), "</p>"));
-        if (!rows.isEmpty())
+        var securities = FundRows.unclassified(input.result(), rows);
+        if (!securities.isEmpty())
         {
-            add("<table class=\"funds\"><thead><tr><th>", e(Texts.LookThroughStatusColumnFund), "</th><th>",
-                            e(Texts.LookThroughStatusColumnStatus), "</th><th class=\"retrieved\">",
-                            e(Texts.LookThroughStatusColumnRetrieved), "</th><th class=\"num\">",
-                            e(Texts.LookThroughStatusColumnShare), "</th></tr></thead>");
-            for (var fund : rows)
-                fundRow(fund, company.decomposedShares(), unconfirmed);
+            add("<table class=\"securities\"><thead><tr><th class=\"name\">", e(Texts.LookThroughStatusColumnFund),
+                            "</th><th class=\"state\">", e(Texts.LookThroughStatusColumnStatus), "</th></tr></thead>");
+            for (var security : securities)
+                statusRow(security, unconfirmed, 2, "");
             add("</table>");
         }
-        add("</details></section>\n");
+        add("</details></div>\n");
     }
 
-    /** A fund of the data status; the lines of its tooltip are also a row that opens below it. */
-    private void fundRow(FundStatus fund, Map<Map<String, String>, String> shares, boolean unconfirmed)
+    /**
+     * One row of the fund table or of the unclassified securities: name with its details, the given
+     * middle cells, and the status last.
+     */
+    private void statusRow(FundStatus fund, boolean unconfirmed, int columns, String middleCells)
     {
         var health = unconfirmed ? Health.NONE : fund.health();
         var statusText = unconfirmed ? "Not looked up: local storage not confirmed"
@@ -975,12 +1029,11 @@ public final class PageWriter
             add(e(fund.fundLabel()));
         else
             add("<details><summary>", e(fund.fundLabel()), "</summary></details>");
-        add("</td><td class=\"health-", health.name().toLowerCase(Locale.ROOT), "\">", icon, " ", e(statusText),
-                        "</td><td>", e(unconfirmed ? "" : fund.retrievedDateText().orElse("")), "</td><td class=\"num\">",
-                        e(unconfirmed ? "–" : LookThroughDataStatus.shareText(fund, shares)), "</td></tr>");
+        add("</td>", middleCells, "<td class=\"health-", health.name().toLowerCase(Locale.ROOT), "\">", icon, " ",
+                        e(statusText), "</td></tr>");
         if (!tooltip.isEmpty())
         {
-            add("<tr class=\"detail\"><td colspan=\"4\"><ul class=\"contrib\">");
+            add("<tr class=\"detail\"><td colspan=\"", String.valueOf(columns), "\"><ul class=\"contrib\">");
             for (var text : tooltip)
                 add("<li>", e(text), "</li>");
             add("</ul></td></tr>");

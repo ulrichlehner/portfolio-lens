@@ -12,6 +12,16 @@ public final class Texts
 
     public static final String LabelBreakdown = "Breakdown";
 
+    public static final String LensQualityLookupFailed = "Lookup failed for {0,choice,1#1 fund|1<{0} funds}";
+
+    public static final String LensQualityNoComposition = "{0,choice,1#1 fund|1<{0} funds} without composition";
+
+    public static final String LensQualityNoValuation = "A security has no valuation";
+
+    public static final String LensQualityRejected = "Composition rejected for {0,choice,1#1 fund|1<{0} funds}";
+
+    public static final String LensQualityUnresolved = "Unresolved value: {0}";
+
     public static final String LookThroughAttributeSourceIsinPrefix = "ISIN prefix";
 
     public static final String LookThroughAttributeSourceProvider = "provider profile";
@@ -74,11 +84,11 @@ public final class Texts
 
     public static final String LookThroughColumnCompany = "Company / instrument";
 
-    public static final String LookThroughColumnDirect = "Direct";
+    public static final String LookThroughColumnDirect = "Held directly";
 
     public static final String LookThroughColumnGrouped = "{0} / company";
 
-    public static final String LookThroughColumnIndirect = "Indirect";
+    public static final String LookThroughColumnIndirect = "Through funds";
 
     public static final String LookThroughColumnRank = "#";
 
@@ -260,9 +270,9 @@ public final class Texts
 
     public static final String LookThroughStatusColumnFund = "Instrument";
 
-    public static final String LookThroughStatusColumnRetrieved = "Retrieved";
+    public static final String LookThroughStatusColumnRetrieved = "Composition date";
 
-    public static final String LookThroughStatusColumnShare = "Broken down";
+    public static final String LookThroughStatusColumnShare = "Looked through";
 
     public static final String LookThroughStatusColumnStatus = "Status";
 
@@ -372,13 +382,15 @@ public final class Texts
 
     public static final String LookThroughSummaryAsOf = "As of {0}";
 
-    public static final String LookThroughSummaryConcentration = "Concentration";
+    public static final String LookThroughSummaryConcentration = "Spread";
 
     public static final String LookThroughSummaryConcentrationTooltip = "The portfolio is about as concentrated as {0} equally sized companies. The shares of the {1} recognized companies are squared, added and the reciprocal of that sum is taken. Example: 1 / (0.3333^2 + 0.3333^2 + 0.3333^2) rounds to 3. The same 100 percent split as 50, 25 and 25 percent gives 1 / (0.5^2 + 0.25^2 + 0.25^2) about 2.67, so the concentration increased. A smaller value means higher concentration, a value near the total means evenly spread. The basis is the recognized companies, the unresolved remainder does not count.";
 
-    public static final String LookThroughSummaryConcentrationValue = "~{0} of {1}";
+    public static final String LookThroughSummaryConcentrationValue = "like ~{0} equal companies";
 
-    public static final String LookThroughSummaryFunds = "Funds broken down";
+    public static final String LookThroughSummaryConcentrationBasis = "of {0} companies";
+
+    public static final String LookThroughSummaryFunds = "Funds looked through";
 
     public static final String LookThroughSummaryLargest = "Largest company";
 
@@ -386,7 +398,7 @@ public final class Texts
 
     public static final String LookThroughSummaryOf = "{0} of {1}";
 
-    public static final String LookThroughSummaryResolved = "Resolved";
+    public static final String LookThroughSummaryResolved = "Looked through";
 
     public static final String LookThroughSummaryTopTen = "Top 10 companies";
 

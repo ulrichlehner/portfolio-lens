@@ -55,10 +55,20 @@ final class Script
                       if(row.length)place(row,rowArea,scale,remaining,out,true);
                       return out;}
                     // members: {w, d (direct fraction)}; tiles below the minimum area merge into one
-                    function merge(members,scale,minArea){var shown=[],others=[],weight=0,direct=0;
-                      for(var i=0;i<members.length;i++){var m=members[i];
+                    // explore: an explored level always makes progress. Members sorted by weight, largest first, are
+                    // shown beyond the minimum area until the merged rest covers at most half of the level, or the
+                    // level shows MAX_TILES members. The overview is merged without it and matches the Java layout.
+                    var MAX_TILES=3000;
+                    function merge(members,scale,minArea,explore){var shown=[],others=[],weight=0,direct=0,total=0;
+                      for(var i=0;i<members.length;i++){var m=members[i];if(m.w>0)total+=m.w;
                         if(m.w*scale>=minArea)shown.push(m);else if(m.w>0){others.push(m);weight+=m.w;direct+=m.w*m.d;}}
-                      return {shown:shown,others:others,weight:weight,direct:direct,threshold:scale>0?minArea/scale:0};}
+                      var threshold=scale>0?minArea/scale:0;
+                      if(explore){var n=0;
+                        while(n<others.length&&weight*2>total&&shown.length<MAX_TILES){var o=others[n++];
+                          shown.push(o);weight-=o.w;direct-=o.w*o.d;threshold=o.w;}
+                        if(n>0)others=others.slice(n);
+                        if(!others.length){weight=0;direct=0;}}
+                      return {shown:shown,others:others,weight:weight,direct:direct,threshold:threshold};}
                     function upperPercent(percent){if(!(percent>0))return '0';
                       var exponent=Math.floor(Math.log10(percent)),step=Math.pow(10,exponent-1);
                       var up=Math.ceil(percent/step-1e-9)*step,s=up.toFixed(Math.max(0,1-exponent));
@@ -72,12 +82,13 @@ final class Script
                       for(var i=0;i<3;i++){var v=Math.round(a[i]+(b[i]-a[i])*f);s+=(v<16?'0':'')+v.toString(16).toUpperCase();}
                       return s;}
                     // ---- page logic without DOM: address, treemap levels, breadcrumb, search
-                    // #grouping=<NAME>[&zoom=<key>.<depth>][&chart=bars|overlap], parts in any order, unknown parts ignored
+                    // #grouping=<NAME>[&zoom=<key>.<depth>][&chart=bars], parts in any order, unknown parts ignored;
+                    // chart=overlap of earlier pages gives the treemap, the matrix is in the Funds section
                     function parseAddress(hash){var r={g:null,zoom:null,chart:'treemap'};
                       String(hash||'').replace(/^#/,'').split('&').forEach(function(p){
                         var i=p.indexOf('='),k=i<0?p:p.substring(0,i),v=i<0?'':p.substring(i+1);
                         if(k==='grouping'){if(/^[A-Z_]+$/.test(v))r.g=v;}
-                        else if(k==='chart'){if(v==='bars'||v==='overlap'||v==='treemap')r.chart=v;}
+                        else if(k==='chart'){if(v==='bars'||v==='treemap')r.chart=v;}
                         else if(k==='zoom'){var m=/^(all|[0-9]+)[.]([0-9]+)$/.exec(v);if(m)r.zoom={key:m[1],depth:+m[2]};}});
                       return r;}
                     function formatAddress(s){return '#grouping='+s.g+(s.zoom?'&zoom='+s.zoom.key+'.'+s.zoom.depth:'')
@@ -97,7 +108,7 @@ final class Script
                       list.sort(function(a,b){return b.w-a.w||a.idx-b.idx;});
                       var area=D.chartWidth*D.chartHeight;
                       for(var d=0;d<depth;d++){var sum=0;list.forEach(function(m){sum+=m.w;});
-                        list=merge(list,sum>0?area/sum:0,D.minTileArea).others;}
+                        list=merge(list,sum>0?area/sum:0,D.minTileArea,!(key==='all'&&d===0)).others;}
                       return list.length?list:null;}
                     // The levels from the overview down to the given one, with their names.
                     function crumbs(key,depth,groupLabel){var out=[{name:'All',level:null}];
@@ -208,7 +219,7 @@ final class Script
                       while(svg.firstChild)svg.removeChild(svg.firstChild);
                       svg.appendChild(node('rect',{'class':'tm-bg',x:0,y:0,width:AREA.w,height:AREA.h}));
                       var list=Lens.levelMembers(D,g,zoom.key,zoom.depth)||[],sum=0;list.forEach(function(m){sum+=m.w;});
-                      var merged=Lens.merge(list,sum>0?AREA.w*AREA.h/sum:0,D.minTileArea);
+                      var merged=Lens.merge(list,sum>0?AREA.w*AREA.h/sum:0,D.minTileArea,true);
                       var items=merged.shown.slice();
                       if(merged.others.length)items.push({w:merged.weight,d:merged.weight>0?merged.direct/merged.weight:0,last:true,merged:merged});
                       Lens.squarify(items,AREA).forEach(function(t){var it=t.item,title=node('title',{});
@@ -241,7 +252,7 @@ final class Script
                       setZoom({g:m.closest('svg').dataset.grouping,key:m.dataset.zoom,depth:depth},true);}
                     // ---- chart tabs
                     var tabs=Array.prototype.slice.call(document.querySelectorAll('.tabs [role=tab]'));
-                    function setTab(name,focus){if(name!=='bars'&&name!=='overlap')name='treemap';
+                    function setTab(name,focus){if(name!=='bars')name='treemap';
                       tab=name;pane.dataset.tab=name;
                       tabs.forEach(function(b){var on=b.dataset.chart===name;b.setAttribute('aria-selected',on?'true':'false');
                         b.tabIndex=on?0:-1;if(on&&focus)b.focus();});}
@@ -304,6 +315,10 @@ final class Script
                       var d=row.querySelector('details');if(d)d.open=true;
                       row.classList.add('selected');row.scrollIntoView({block:'nearest'});mark(id);}
                     document.addEventListener('click',function(ev){var t=ev.target;if(!t.closest)return;
+                      // section links scroll; the address keeps the state of the view
+                      var sec=t.closest('a[data-section]');
+                      if(sec){var to=document.getElementById(sec.dataset.section);
+                        if(to){ev.preventDefault();to.scrollIntoView({block:'start'});}return;}
                       document.querySelectorAll('details.hint[open]').forEach(function(h){if(!h.contains(t))h.open=false;});
                       var m=t.closest('g.tm-merged[role=button]');if(m){ev.preventDefault();enter(m);return;}
                       var z=t.closest('a.tm-zoom');

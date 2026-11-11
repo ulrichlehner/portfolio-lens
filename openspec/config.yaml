@@ -35,6 +35,12 @@ rules:
 #     tasks:
 #       - Break tasks into chunks of max 2 hours
 
+operations:
+  apply:
+    guidance:
+      - Follow the section "Delegating to subagents" in AGENTS.md. Name a small model for every subagent and keep design work in the main session.
+      - Run builds and tests one at a time, because they share target/.
+
 # Per-operation guidance (optional)
 # Add advisory guidance for how apply and archive work should be conducted.
 # This is separate from artifact rules above.

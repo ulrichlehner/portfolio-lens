@@ -249,9 +249,10 @@ missing conversion instead of using the values.
 
 ## Releases
 
-Releases are published on the GitHub releases page of this repository. A version such as
-`1.0.0-rc.1` is a prerelease for testing an integration; `1.0.0` is a release. Each release has two
-files:
+A release follows a merge into `main` that contains a feature, a fix or a breaking change. Releases
+are published on the GitHub releases page of this repository; the latest release there is the newest
+final release. A version such as `X.Y.Z-rc.N` is a prerelease for testing an integration. Each
+release has two files:
 
 - `portfolio-lens-<version>.tar.gz`
 - `portfolio-lens-<version>.tar.gz.sha256`
@@ -288,9 +289,10 @@ What a program that runs a release, for example a container on a server, can rel
 ## Versions
 
 Portfolio Lens uses [Semantic Versioning](https://semver.org/). Releases are tagged `vX.Y.Z`. The
-commands, settings, exit statuses, `status.json` and the cache format are the interface the version
-number describes; before `1.0.0` an incompatible change raises the minor version. Details are in
-[AGENTS.md](AGENTS.md#versioning).
+commit types of a merged pull request decide the version: a breaking change raises the major
+version, `feat` the minor version, `fix` and `perf` the patch version. The commands, settings, exit
+statuses, `status.json` and the cache format are the interface the version number describes. Builds
+made during development report `0.0.0-SNAPSHOT`. Details are in [AGENTS.md](AGENTS.md#versioning).
 
 ## License
 

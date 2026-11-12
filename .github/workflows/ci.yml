@@ -32,6 +32,9 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Test the version rule of the release workflow
+        run: bash scripts/next-version.test.sh
+
       - name: Build and test
         run: mvn -B verify
 

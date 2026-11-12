@@ -196,6 +196,10 @@ final class Style
                     tr:has(details[open])>td,tr.open>td{border-bottom-color:transparent}
                     @supports not selector(:has(*)){html:not(.js) tr.detail{display:table-row}}
                     .contrib{margin:0 0 4px 18px;padding:0;font-size:12px;color:var(--muted)}
+                    .contrib.sums{list-style:none;margin:0 0 4px;padding:0}
+                    .contrib.sums li{display:grid;grid-template-columns:1fr calc(12ch + 16px) calc(12ch + 16px) calc(12ch + 16px) calc(7ch + 16px)}
+                    .contrib.sums li>.num{padding-right:8px}.contrib.sums li>span:first-child{padding-left:16px}
+                    tr.detail td:has(>.contrib.sums){padding-right:0}
                     .contrib li.direct::marker{color:var(--c-direct)}.detail p.detail,p.detail{font-size:12px;color:var(--muted);margin:0 0 2px}
                     .toggle{font:inherit;background:none;border:0;padding:0;color:inherit;cursor:pointer;text-align:left}
                     td>details>summary{list-style:none}td>details>summary::-webkit-details-marker{display:none}

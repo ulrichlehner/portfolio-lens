@@ -150,8 +150,10 @@ final class Script
                     function detailRow(index,f,detail){var c=D.c[index],tr=el('tr','detail'),td=el('td');
                       tr.appendChild(el('td'));td.colSpan=5;
                       var dt=detail>=0?detail:c[4];if(dt>=0)td.appendChild(el('p','detail',D.s[dt]));
-                      var ul=el('ul','contrib');c[5].forEach(function(x){var v=Math.round(x[1]*f),s=share(v);
-                        ul.appendChild(el('li',x[2]?'direct':'indirect',D.s[x[0]]+': '+amount(v)+(s?' ('+s+')':'')));});
+                      var ul=el('ul','contrib sums');c[5].forEach(function(x){var v=Math.round(x[1]*f),li=el('li',x[2]?'direct':'indirect');
+                        li.appendChild(el('span',null,D.s[x[0]]));
+                        [x[2],!x[2],true].forEach(function(on){li.appendChild(el('span','num',on?plain(v):''));});
+                        li.appendChild(el('span','num',share(v)));ul.appendChild(li);});
                       td.appendChild(ul);tr.appendChild(td);return tr;}
                     // rows built here get their second row when they are opened first
                     document.addEventListener('toggle',function(ev){var d=ev.target;

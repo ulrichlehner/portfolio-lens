@@ -26,7 +26,7 @@
 - [x] 4.3 Pass the version to every Maven call with `-Drevision`, and keep the archive, checksum, manifest and third-party checks as they are
 - [x] 4.4 Create the release for a push to `main` with `gh release create v<version> --target <sha>`, keep `--verify-tag` for pushed tags, and add the "Changes" section to the notes of a release on merge
 - [x] 4.5 Set the concurrency group for pushes to `main` as in design D4 and fail with a clear message when the computed tag exists on another commit
-- [ ] 4.6 Verify the workflow file with a manual dry run on the branch (`gh workflow run release.yml --ref ci/release-on-merge` after the user authorizes the push): the artifact is `portfolio-lens-1.1.0-SNAPSHOT.tar.gz` with its checksum, and the repository has no new tag or release
+- [x] 4.6 Verify the workflow file with a manual dry run on the branch (`gh workflow run release.yml --ref ci/release-on-merge` after the user authorizes the push): the artifact is `portfolio-lens-1.1.0-SNAPSHOT.tar.gz` with its checksum, and the repository has no new tag or release
 
 ## 5. Documentation and rules (design D6)
 
@@ -39,8 +39,8 @@
 - [x] 6.1 Run `scripts/dev.sh test` and `bash scripts/next-version.test.sh` and verify that both pass
 - [x] 6.2 Scan the diff for personal data (names, amounts, holdings, ISINs of a real portfolio, keys, tokens) and verify that `scratch/` is not staged
 - [x] 6.3 Commit with Conventional Commits as `ci(release): ...`, naming in the body that the version no longer lives in `pom.xml`
-- [ ] 6.4 After the user authorizes it, push the branch and open the pull request into `main`, stating that merging it publishes `1.1.0`
-- [ ] 6.5 Run `scripts/dev.sh clean`
+- [x] 6.4 After the user authorizes it, push the branch and open the pull request into `main`, stating that merging it publishes `1.1.0`
+- [x] 6.5 Run `scripts/dev.sh clean`
 
 ## Workflow follow-up
 

@@ -91,7 +91,7 @@ The Exposure section SHALL open with a summary of the securities value, the shar
 - **THEN** the summary withholds whole-portfolio percentages and the data quality line carries a warning that names the missing valuation.
 
 ### Requirement: Concentration summary
-The summary SHALL show the spread as the approximate number of equally sized companies, worded as "like N equal companies", computed as one divided by the sum of the squared company shares, with the number of companies it is based on. Its explanation SHALL describe the calculation with an example, say that smaller means more concentrated, and name the basis. The summary SHALL also show the largest company and its share. When one company exceeds 10 percent of the portfolio value, the figure of the largest company SHALL be marked and SHALL name it with its share.
+The summary SHALL show the spread as "like N equal companies", where N is one divided by the sum of the squared company shares, with the number of companies it is based on. Its explanation SHALL describe the calculation with an example and say that smaller means more concentrated. The summary SHALL also show the largest company and its share, and SHALL mark that figure when the company exceeds 10 percent of the portfolio value.
 
 #### Scenario: Evenly spread
 - **WHEN** the company exposure is split evenly across 100 companies
@@ -106,7 +106,7 @@ The summary SHALL show the spread as the approximate number of equally sized com
 - **THEN** the summary shows it as the largest company with its 12 percent share and marks that figure.
 
 ### Requirement: Overlap chart
-The Funds section SHALL show an overlap matrix with each pair of decomposed funds once, as the lower triangle of a fund matrix without diagonal. Each cell SHALL show the overlap percentage and the number of shared companies, shaded by size. A cell tooltip SHALL name both funds, the overlap, the number of shared companies and the five largest shared companies. With fewer than two decomposed funds, the section SHALL show a short message instead of a matrix. The matrix SHALL NOT depend on the selected grouping.
+The Funds section SHALL show an overlap matrix with each pair of decomposed funds once, as the lower triangle of a fund matrix. Each cell SHALL show the overlap percentage and the number of shared companies, shaded by size. Its tooltip SHALL name both funds, these two values and the five largest shared companies. With fewer than two decomposed funds, the section SHALL show a short message instead. The matrix SHALL NOT depend on the selected grouping.
 
 #### Scenario: Two decomposed funds
 - **WHEN** the portfolio holds two decomposed funds
@@ -223,7 +223,7 @@ The three page sections SHALL be visually separated from each other and from the
 - **THEN** the data status is collapsed and the status row is visible.
 
 ### Requirement: Explorable merged tile
-The merged tile SHALL state the number of its companies, their total share and the size limit, SHALL be reachable by keyboard, and SHALL be drawn as one tile in a colour of its own. Activating it SHALL show its companies as a treemap of their own over the whole chart; a group's merged tile SHALL show the companies of that group only. On such a level the companies still merged SHALL NOT cover more than half of the chart, unless the level already shows 3,000 companies of their own. Companies whose tile is too small for a label SHALL be drawn without label and SHALL keep their tooltip and their selection. Every company SHALL therefore be reachable as a tile of its own after a bounded number of levels.
+The merged tile SHALL state the number of its companies, their total share and the size limit, and SHALL be reachable by keyboard. Activating it SHALL show its companies, of that group only for a group's tile, as a treemap over the whole chart. On such a level the companies still merged SHALL NOT cover more than half of the chart, unless the level already shows 3,000 companies. Tiles too small for a label SHALL keep their tooltip and selection.
 
 #### Scenario: Label of the merged tile
 - **WHEN** 3,882 synthetic companies with together 33.1 % of the value are merged, each below 0.05 %

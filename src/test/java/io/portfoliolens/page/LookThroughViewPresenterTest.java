@@ -1172,6 +1172,26 @@ public class LookThroughViewPresenterTest
     }
 
     @Test
+    public void testLargestCompanyAboveTenPercentIsDominant()
+    {
+        hold("big", "Synthetic big holding", AssetType.EQUITY, "SYNTH-BIG", 1, 12);
+        for (int ii = 0; ii < 88; ii++)
+            hold("c" + ii, "Synthetic holding " + ii, AssetType.EQUITY, "SYNTH-" + ii, 1, 1);
+
+        assertTrue(model(result()).summary().largestDominant());
+    }
+
+    @Test
+    public void testLargestCompanyBelowTenPercentIsNotDominant()
+    {
+        hold("small", "Synthetic small holding", AssetType.EQUITY, "SYNTH-SMALL", 1, 8);
+        for (int ii = 0; ii < 92; ii++)
+            hold("c" + ii, "Synthetic holding " + ii, AssetType.EQUITY, "SYNTH-" + ii, 1, 1);
+
+        assertFalse(model(result()).summary().largestDominant());
+    }
+
+    @Test
     public void testConcentrationOfEvenlySpreadCompaniesIsTheirCount()
     {
         for (int ii = 0; ii < 100; ii++)
@@ -1185,7 +1205,7 @@ public class LookThroughViewPresenterTest
                         effective.text());
         assertEquals(MessageFormat.format(Texts.LookThroughSummaryConcentrationTooltip, 100L, 100L),
                         effective.tooltip());
-        assertTrue(effective.text().startsWith("~"));
+        assertEquals("like ~100 equal companies", effective.text());
     }
 
     @Test

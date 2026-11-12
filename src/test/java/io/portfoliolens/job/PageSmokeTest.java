@@ -42,6 +42,11 @@ public class PageSmokeTest
 
     private String render(Map<String, String> extra) throws Exception
     {
+        return render(extra, new SyntheticProviders());
+    }
+
+    private String render(Map<String, String> extra, io.portfoliolens.http.HttpGet http) throws Exception
+    {
         try (var pp = new FakePpServer(TOKEN).serveStandard())
         {
             var holdings = Fixtures.read("pp/holdings.json").replace("Synthetic German Share", HOSTILE.replace("\"", "\\\""));
@@ -55,7 +60,7 @@ public class PageSmokeTest
                             temp.resolve("out").toString()));
             env.putAll(extra);
             var settings = LensConfig.load(env, Optional.empty(), temp, true).settings().orElseThrow();
-            new LensRun(settings, new LensRun.Environment(new SyntheticProviders(),
+            new LensRun(settings, new LensRun.Environment(http,
                             Clock.fixed(Instant.parse("2026-07-20T08:00:00Z"), ZoneOffset.UTC), () -> {
                             })).run();
         }
@@ -114,7 +119,7 @@ public class PageSmokeTest
                         + " style=\"background:linear-gradient(to right,#2CA02C,#1F77B4)\"></span> Through funds"));
         assertTrue(page.contains("<span class=\"legend-caption\">Bar color:</span>"));
         assertTrue(page.contains("class=\"tm-tile\" fill=\"#"));
-        var overlapStart = page.indexOf("<figure class=\"chart\" data-chart=\"overlap\"");
+        var overlapStart = page.indexOf("<figure class=\"chart funds-overlap\" data-chart=\"overlap\"");
         var overlap = page.substring(overlapStart, page.indexOf("</figure>", overlapStart));
         assertFalse(overlap.contains("legend-caption"), "no colour legend for the overlap matrix");
         assertFalse(overlap.substring(0, overlap.indexOf('>')).contains("hidden"), "the overlap figure is never hidden");
@@ -170,8 +175,108 @@ public class PageSmokeTest
         assertFalse(page.contains("<p class=\"app-link\">"));
         var header = page.substring(page.indexOf("<header"), page.indexOf("</header>"));
         assertFalse(header.contains("app-link"), "no link and no placeholder in the header");
-        assertTrue(Pattern.compile("<input type=\"search\"[^>]*>\\s*</div>").matcher(header).find(),
-                        "the search input is directly followed by the end of the bar line");
+        assertTrue(Pattern.compile("<input type=\"search\"[^>]*>\\s*<nav class=\"sections\"[^>]*>(<a [^>]*>[^<]*</a>)+</nav>\\s*</div>")
+                        .matcher(header).find(), "the section links are directly followed by the end of the bar line");
+    }
+
+    /** The text of a section: from its opening tag to the next top-level section or the end of the page. */
+    private static String section(String page, String id)
+    {
+        var start = page.indexOf("<section id=\"" + id + "\"");
+        assertTrue(start >= 0, "section " + id);
+        var next = page.indexOf("<section id=\"", start + 1);
+        return page.substring(start, next < 0 ? page.length() : next);
+    }
+
+    @Test
+    public void testSectionsAndNavigation() throws Exception
+    {
+        var page = render();
+        var exposure = page.indexOf("<section id=\"exposure\" class=\"page-section\"><h2>");
+        var funds = page.indexOf("<section id=\"funds\" class=\"page-section\"><h2>");
+        var quality = page.indexOf("<section id=\"quality\" class=\"page-section\"><h2>");
+        assertTrue(exposure >= 0 && exposure < funds && funds < quality, "order of the three sections");
+        var nav = Pattern.compile("<nav class=\"sections\"[^>]*>([\\s\\S]*?)</nav>").matcher(page);
+        assertTrue(nav.find());
+        var links = Pattern.compile("<a href=\"#([a-z]+)\" data-section=\"\\1\">").matcher(nav.group(1));
+        int count = 0;
+        while (links.find())
+        {
+            count++;
+            assertTrue(page.contains("<section id=\"" + links.group(1) + "\""), "target of " + links.group(1));
+        }
+        assertEquals(3, count);
+    }
+
+    @Test
+    public void testDataQualityLineAndMark() throws Exception
+    {
+        var page = render();
+        var line = Pattern.compile("<a class=\"chip quality-line([^\"]*)\" href=\"#quality\"[^>]*>([\\s\\S]*?)</a>")
+                        .matcher(page);
+        assertTrue(line.find());
+        assertEquals(1, occurrences(page, "quality-line"));
+        assertTrue(line.group(2).contains("<span>Looked through 93.25% \u00b7 2 of 2 funds</span>"), line.group(2));
+        // the synthetic portfolio keeps an unresolved value, which is the first problem
+        assertEquals(" attention", line.group(1));
+        assertTrue(line.group(2).contains("Unresolved value: "), line.group(2));
+
+        // the largest company is above 10 percent and carries the mark in its card
+        var card = Pattern.compile("<dt>Largest company</dt><dd>([\\s\\S]*?)</dd>").matcher(page);
+        assertTrue(card.find());
+        assertTrue(card.group(1).startsWith("<span class=\"card-mark\">"), card.group(1));
+        assertEquals(1, occurrences(section(page, "exposure"), "class=\"card-mark\""));
+    }
+
+    @Test
+    public void testFailedLookupRaisesAttentionWithItsText() throws Exception
+    {
+        var page = render(Map.of(), failEtfHoldings());
+        var line = Pattern.compile("<a class=\"chip quality-line([^\"]*)\" href=\"#quality\"[^>]*>([\\s\\S]*?)</a>")
+                        .matcher(page);
+        assertTrue(line.find());
+        assertEquals(" attention", line.group(1));
+        assertTrue(line.group(2).contains("<span>&#9888;</span>"), line.group(2));
+    }
+
+    @Test
+    public void testFundsAreListedOnceAndNotInTheDataStatus() throws Exception
+    {
+        var page = render();
+        var funds = section(page, "funds");
+        var names = new java.util.ArrayList<String>();
+        var summaries = Pattern.compile("<tbody><tr class=\"top\"[\\s\\S]*?<summary>([^<]*)</summary>").matcher(funds);
+        while (summaries.find())
+            names.add(summaries.group(1));
+        assertEquals(2, names.size(), names.toString());
+        assertEquals(2, occurrences(funds, "<tbody><tr class=\"top\""));
+        for (var name : names)
+            assertEquals(1, occurrences(funds, ">" + name + "</summary>"), name);
+        assertTrue(funds.contains("<tr class=\"detail\"") && funds.contains("colspan=\"7\""));
+
+        // the data status lists no fund row and no fund table
+        var quality = section(page, "quality");
+        var statusStart = quality.indexOf("<details id=\"data-status\">");
+        var status = quality.substring(statusStart, quality.indexOf("<script", statusStart));
+        for (var name : names)
+            assertFalse(status.contains(name), "no fund row of " + name);
+        assertFalse(status.contains("<table class=\"funds\""));
+        assertEquals(occurrences(status, "<table"), occurrences(status, "<table class=\"securities\""));
+
+        // coverage and notices come after the Funds section
+        var fundsAt = page.indexOf("<section id=\"funds\"");
+        assertTrue(page.indexOf("<section class=\"coverage\">") > fundsAt);
+        assertTrue(page.indexOf("<ul class=\"notices\">") > fundsAt);
+        assertEquals(1, occurrences(page, "<section class=\"coverage\">"));
+        assertEquals(1, occurrences(page, "<ul class=\"notices\">"));
+    }
+
+    /** Answers the fund compositions of the provider with a server error. */
+    private static io.portfoliolens.http.HttpGet failEtfHoldings()
+    {
+        var delegate = new SyntheticProviders();
+        return (uri, headers) -> uri.getPath().startsWith("/api/1/etf/holdings/")
+                        ? io.portfoliolens.testing.RecordingHttp.json(500, "") : delegate.get(uri, headers);
     }
 
     private static int occurrences(String text, String part)
@@ -187,14 +292,17 @@ public class PageSmokeTest
 
     private static void assertStructure(String page)
     {
-        // a. one overlap figure, inside the chart pane
+        // a. no overlap figure in the chart pane; one in the Funds section
         var overlap = "data-chart=\"overlap\"";
-        assertEquals(1, occurrences(page, "<figure class=\"chart\" " + overlap), "one overlap figure");
         var paneStart = page.indexOf("<div class=\"chart-pane\"");
         var tablePane = page.indexOf("<div class=\"table-pane\">");
         assertTrue(paneStart >= 0 && tablePane > paneStart);
-        var at = page.indexOf("<figure class=\"chart\" " + overlap);
-        assertTrue(at > paneStart && at < tablePane, "the overlap figure lies in the chart pane");
+        assertFalse(page.substring(paneStart, tablePane).contains(overlap), "no overlap figure in the chart pane");
+        assertEquals(1, occurrences(page, "<figure class=\"chart funds-overlap\" " + overlap), "one overlap figure");
+        var fundsSection = section(page, "funds");
+        assertEquals(1, occurrences(fundsSection, "<figure class=\"chart funds-overlap\" " + overlap)
+                        + occurrences(fundsSection, "At least two decomposed funds are needed"),
+                        "the Funds section holds one overlap figure or the message");
 
         // b. per grouping one treemap, one bars figure and one view; only COMPANY is visible
         for (var grouping : GROUPINGS)
@@ -241,6 +349,14 @@ public class PageSmokeTest
         }
         assertEquals(GROUPINGS.length, tables);
         assertEquals("rank|name|num|num|num|num share", first);
+        var headTexts = Pattern.compile("<table class=\"breakdown\"[^>]*><thead>([\\s\\S]*?)</thead>").matcher(page);
+        while (headTexts.find())
+        {
+            var text = headTexts.group(1).replaceAll("<[^>]*>", "|").replaceAll("\\|+", "|");
+            assertTrue(text.contains("|Held directly|Through funds|Total|Share|"), text);
+        }
+        assertFalse(page.contains("Resolved") || page.contains("Indirect") || page.contains("Funds broken down"),
+                        "the old terms do not occur");
 
         // e. every company block has a detail row with the contributions
         var blocks = Pattern.compile("<tbody class=\"block company\"[\\s\\S]*?</tbody>").matcher(page);
@@ -271,9 +387,10 @@ public class PageSmokeTest
         }
         assertTrue(grouped > 0, "at least one grouped treemap");
 
-        // g. the chart tabs
-        for (var tab : new String[] { "treemap", "bars", "overlap" })
+        // g. the chart tabs: treemap and bars only
+        for (var tab : new String[] { "treemap", "bars" })
             assertTrue(page.contains("role=\"tab\" id=\"tab-" + tab + "\" data-chart=\"" + tab + "\""), tab);
+        assertEquals(2, occurrences(page.substring(paneStart, tablePane), "role=\"tab\""), "two tab buttons");
 
         // h. explanations and the rows of the data status
         assertTrue(page.contains("<details class=\"hint\">"));

@@ -229,7 +229,8 @@ public final class LookThroughViewPresenter
                     Optional<String> resolvedText, Optional<BigDecimal> topTenShare, Optional<String> topTenText,
                     int decomposedFunds, int heldFunds, Optional<String> fundsText, boolean needsCompositions,
                     boolean attention, String indicatorText, Optional<Largest> largest,
-                    Optional<Effective> effective)
+                    Optional<Effective> effective, boolean largestDominant, boolean valuationProblem,
+                    BigDecimal unresolvedValue, Optional<String> unresolvedText)
     {
     }
 
@@ -555,12 +556,26 @@ public final class LookThroughViewPresenter
                         denominator.isEmpty() || !valuation.diagnostics().isEmpty() || unverifiedNotice.isPresent()
                                         || concentrated.isPresent(),
                         String.join("\n\n", notices),
-                        largest, denominator.isPresent() ? effective(result) : Optional.empty());
+                        largest, denominator.isPresent() ? effective(result) : Optional.empty(),
+                        concentrated.isPresent(), !valuation.diagnostics().isEmpty() || (denominator.isEmpty() && !empty),
+                        result.value(Category.UNRESOLVED), unresolvedText(result, denominatorAmount));
 
         return new Model(valuation.date(), valuation.valuedSubset().getCurrencyCode(), scopeText, denominator,
                         denominatorText, completeness, completenessText, unverifiedNotice, empty, rows, summary,
                         empty ? Optional.empty() : coverage(result, denominatorAmount), funds.shares(),
                         directlyClassified(result), grouping, assumedCompanies(result, denominatorAmount));
+    }
+
+    /** The share of the unresolved value, shown bounded; absent when nothing is unresolved. */
+    private Optional<String> unresolvedText(LookThroughResult result, Optional<BigDecimal> denominator)
+    {
+        var value = result.value(Category.UNRESOLVED);
+        if (value.signum() == 0)
+            return Optional.empty();
+        var currency = result.valuation().valuedSubset().getCurrencyCode();
+        return Optional.of(share(value, denominator)
+                        .map(fraction -> boundedShareText(Values.Percent2, fraction, true, true))
+                        .orElseGet(() -> formatAmount(value, currency)));
     }
 
     /**

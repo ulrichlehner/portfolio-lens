@@ -152,6 +152,25 @@ Portfolio Lens follows [Semantic Versioning 2.0.0](https://semver.org/).
   `BREAKING CHANGE:` footer MAJOR (MINOR before `1.0.0`). Name an interface change in the commit
   body and in the pull request.
 
+## Delegating to subagents
+
+This rule always applies. The user does not repeat it per task.
+
+- A subagent never runs on the model of the main session by default. Name its model in the call,
+  and pick the smallest one that does the job.
+- Smallest tier (for Claude Code: Haiku): running tests and builds and reporting the result,
+  searching the code, collecting facts, mechanical edits with an exact instruction.
+- Middle tier (Sonnet): self-contained work with a clear brief, such as writing or updating tests
+  for code that exists, documentation, and a contained piece of logic with its tests.
+- Main session: design decisions, work that touches several coupled files at once, and anything
+  where the brief would be as long as the work.
+- Delegate what produces long output, such as Maven logs, so it stays out of the main context.
+  Ask for a short result: pass or fail, the failing tests and the relevant lines.
+- Builds and tests share `target/`. Never let two of them run at the same time, whether from the
+  main session, a subagent or the dev container.
+- A subagent report is not proof. Check the diff or the test result before stating that
+  something is done.
+
 ## Page design
 
 The page has a small design system, described at the top of

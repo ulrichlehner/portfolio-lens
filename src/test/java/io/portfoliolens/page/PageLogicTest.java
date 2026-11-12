@@ -175,7 +175,8 @@ public class PageLogicTest
     {
         assertAddress(address("#grouping=SECTOR&zoom=3.1"), "SECTOR", "3", 1, "treemap");
         assertAddress(address("#grouping=COUNTRY&zoom=2.0"), "COUNTRY", "2", 0, "treemap");
-        assertAddress(address("#chart=overlap&grouping=COMPANY"), "COMPANY", null, null, "overlap");
+        assertAddress(address("#chart=overlap&grouping=COMPANY"), "COMPANY", null, null, "treemap");
+        assertAddress(address("#grouping=SECTOR&chart=overlap"), "SECTOR", null, null, "treemap");
         assertAddress(address("#grouping=COMPANY&zoom=all.2&foo=bar"), "COMPANY", "all", 2, "treemap");
         assertAddress(address(""), null, null, null, "treemap");
         assertAddress(address("#nonsense"), null, null, null, "treemap");
@@ -281,6 +282,60 @@ public class PageLogicTest
         assertTrue(others.containsAll(two));
 
         assertTrue(call("levelMembers", "$D", "COMPANY", "all", 40).isJsonNull());
+    }
+
+    private static JsonArray equalMembers(int count, int firstIndex)
+    {
+        var members = new JsonArray();
+        for (int i = 0; i < count; i++)
+        {
+            var m = new JsonObject();
+            m.addProperty("w", 1);
+            m.addProperty("d", 0.5);
+            m.addProperty("i", firstIndex + i);
+            members.add(m);
+        }
+        return members;
+    }
+
+    @Test
+    public void testExploredLevelShowsMembersUntilHalfIsMerged() throws Exception
+    {
+        var members = equalMembers(2800, 0);
+        var first = call("merge", members, AREA / 2800, MIN_AREA, true).getAsJsonObject();
+        assertEquals(1400, first.getAsJsonArray("shown").size());
+        assertEquals(1400, first.getAsJsonArray("others").size());
+
+        // the merged rest is the next level: everything fits and nothing is merged
+        var next = call("merge", first.getAsJsonArray("others"), AREA / 1400, MIN_AREA, true).getAsJsonObject();
+        assertEquals(1400, next.getAsJsonArray("shown").size());
+        assertEquals(0, next.getAsJsonArray("others").size());
+    }
+
+    @Test
+    public void testExploredLevelShowsAtMostThreeThousandMembers() throws Exception
+    {
+        var level = call("merge", equalMembers(7000, 0), AREA / 7000, MIN_AREA, true).getAsJsonObject();
+        assertEquals(3000, level.getAsJsonArray("shown").size());
+        assertEquals(4000, level.getAsJsonArray("others").size());
+    }
+
+    @Test
+    public void testExploredLevelWithSmallRestIsUnchanged() throws Exception
+    {
+        var members = new JsonArray();
+        for (int i = 0; i < 40; i++)
+        {
+            var m = new JsonObject();
+            m.addProperty("w", i < 10 ? 100 : 1);
+            m.addProperty("d", 0.5);
+            m.addProperty("i", i);
+            members.add(m);
+        }
+        double scale = AREA / 1030;
+        var plain = call("merge", members, scale, 300);
+        assertEquals(30, plain.getAsJsonObject().getAsJsonArray("others").size());
+        assertEquals(plain, call("merge", members, scale, 300, true));
     }
 
     @Test

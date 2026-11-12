@@ -42,7 +42,7 @@ are filled largest first, and nothing resolved in an earlier run is lost while t
 Some funds report holdings that add up to slightly more than 100%, balanced by negative cash and
 currency rows without a security identifier. Lens uses such a composition with its real weights
 when these rows net to at most -10% of the fund, and shows the net as "Net cash of funds" in the
-table, the summary and the fund's data status; the charts do not draw it and name it in a note. A
+table, the summary and the fund's row in the fund table; the charts do not draw it and name it in a note. A
 larger negative net likely means leverage, and the fund stays unresolved. After upgrading to a
 version with this rule, the first run requests the compositions of funds that were rejected or
 failed before once more, instead of waiting for their 24-hour cadence.
@@ -162,17 +162,29 @@ Overlapping runs are safe: a run that finds another one active exits without cha
 - `LENS_OUTPUT_DIR`: `index.html` and `status.json`. The page contains your holdings and values;
   serve it only behind authentication.
 
-The page has a bar that stays at the top (grouping, company search, the application link, generation
-time) and, on screens at least 1100 pixels wide, two panes: the chart on the left stays in view while
-the table on the right scrolls. Tabs switch the chart between treemap, the 20 largest and the fund
-overlap. In a grouped treemap a click on a group shows that group's companies; a breadcrumb, the Back
+The page has three sections, and a bar that stays at the top links to them and holds the grouping,
+the company search, the application link and the generation time.
+
+- Exposure: the summary, one line on data quality, and on screens at least 1100 pixels wide two
+  panes: the chart on the left stays in view while the table on the right scrolls. Tabs switch the
+  chart between treemap and the 20 largest.
+- Funds: a table of the held funds with value, share, number of companies, looked-through share,
+  composition date and status, and the overlap matrix of the funds.
+- Data quality: the coverage bar, the notes on the calculation and the data status.
+
+The data quality line shows a warning only when a lookup failed, a composition was rejected, a fund
+has no composition, a security has no valuation or value is unresolved.
+
+In a grouped treemap a click on a group shows that group's companies; a breadcrumb, the Back
 button or Escape lead back. Companies too small for their own tile share one tile whose area is their
-total value; it shows their number and share, and clicking it (or Enter) explores them. Grouping,
-chart tab and treemap level are kept in the page address.
+total value; it shows their number and share, and clicking it (or Enter) explores them. On an
+explored level that tile covers at most half of the chart, and the other companies are drawn as
+small tiles without label, so every company is reached after a few levels. Grouping, chart tab and
+treemap level are kept in the page address.
 
 The page holds every company once, in its embedded data, and renders the 200 largest rows; further
 rows, the companies of a group, search results and treemap levels are built on demand. Without
-scripts it shows the Company grouping with all three charts below each other. For 4,000 companies
+scripts it shows the Company grouping with both charts below each other, and the other sections. For 4,000 companies
 it is about 1.6 MB, about 0.3 MB compressed. Serve it compressed, for example with Caddy:
 
 ```

@@ -9,7 +9,8 @@ package io.portfoliolens.page;
  * <ul>
  * <li>Tokens on {@code :root}: surfaces {@code --bg}, {@code --panel}, {@code --line}; text
  * {@code --fg}, {@code --muted}; {@code --accent} for everything interactive (focus ring,
- * selected tab, text links); corner radius {@code --r} for controls and {@code --r-l} for cards;
+ * selected tab, text links); corner radius {@code --r} for controls, {@code --r-l} for cards and
+ * {@code --r-pill} for chips;
  * {@code --ctl-h} for the height of a control; {@code --shadow} for anything laid over the page.
  * Chart colours ({@code --c-*}, {@code --tm-*}, {@code --cov-*}, {@code --mx-*}) are data colours
  * and are not used for controls.</li>
@@ -34,7 +35,7 @@ final class Style
                     --cov-companies:#7b5ea7;--cov-ungrouped:#a3b84a;--cov-cash:#9aa1a8;--cov-unverified:#e0a43a;
                     --cov-unresolved:#c4473a;--warn-bg:#fff4dc;--warn-line:#d79a1e;--info-bg:#eef4fb;--target:#fff1b8;
                     --mx-0:#eef3f8;--mx-1:#1f4e89;--bar-h:68px;
-                    --accent:#2563a8;--r:6px;--r-l:10px;--ctl-h:30px;--shadow:0 4px 14px rgba(0,0,0,.18)}
+                    --accent:#2563a8;--r:6px;--r-l:10px;--r-pill:999px;--ctl-h:30px;--shadow:0 4px 14px rgba(0,0,0,.18)}
                     @media (prefers-color-scheme:dark){:root{--bg:#15181b;--fg:#e6e8ea;--muted:#a1a8af;--line:#33393f;
                     --panel:#1d2125;--tm-other:#3f566e;
                     --cov-companies:#a58ad6;--cov-ungrouped:#b9cc5c;--cov-cash:#7c848c;--cov-unverified:#e8b45a;
@@ -68,12 +69,20 @@ final class Style
                     background-repeat:no-repeat}
                     .back,.show-more{height:22px;padding:0 8px;font-size:12px}
                     #search{flex:0 1 240px;min-width:90px}
-                    .app-link{margin:0 0 0 auto;white-space:nowrap}
+                    .sections{display:flex;gap:2px;margin-left:auto;white-space:nowrap}
+                    .sections a{display:inline-flex;align-items:center;height:var(--ctl-h);padding:0 10px;border-radius:var(--r);
+                    color:var(--muted);text-decoration:none}
+                    .sections a:hover{color:var(--fg);background:var(--line)}
+                    .app-link{margin:0 0 0 8px;white-space:nowrap}
+                    .page-section{scroll-margin-top:calc(var(--bar-h) + 8px);margin-top:24px;padding-top:14px;
+                    border-top:1px solid var(--line)}
+                    #exposure{margin-top:0;padding-top:0;border-top:0}
+                    .page-section>h2{font-size:15px;margin:0 0 10px}
                     .app-link a{display:inline-flex;align-items:center;text-decoration:none;font-weight:600}
                     .app-link a::before{content:"\\2039";margin-right:6px;color:var(--muted)}
                     .meta{color:var(--muted);margin:2px 0 0;height:22px;line-height:22px;white-space:nowrap;overflow:hidden;
                     text-overflow:ellipsis;font-size:12px}
-                    .stale{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:999px;color:var(--fg);padding:0 8px;
+                    .stale{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:var(--r-pill);color:var(--fg);padding:0 8px;
                     margin-right:8px}
                     .banner{padding:10px 14px;margin:0 0 12px;border-radius:var(--r-l)}
                     .banner p{margin:2px 0}
@@ -96,16 +105,15 @@ final class Style
                     padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);
                     box-shadow:var(--shadow);white-space:pre-line;color:var(--fg);font-size:13px;line-height:1.4}
                     .summary dl>div:nth-last-child(-n+3):not(:nth-child(-n+2)) .hint>p{left:auto;right:0}
-                    .notices{margin:8px 0 0}
-                    .notices>summary{display:inline-block;list-style:none;padding:1px 10px;font-size:12px;color:var(--muted);
-                    background:var(--panel);border:1px solid var(--line);border-radius:999px}
-                    .notices>summary::-webkit-details-marker{display:none}
-                    .notices>summary::after{content:" \\25BE"}.notices[open]>summary::after{content:" \\25B4"}
-                    .notices.attention>summary{color:var(--fg);background:var(--warn-bg);border-color:var(--warn-line)}
-                    .notices ul{margin:6px 0 0;padding:8px 12px 8px 28px;max-width:900px;font-size:13px;color:var(--muted);
+                    .chip{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:1px 10px;font-size:12px;
+                    color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:var(--r-pill);text-decoration:none}
+                    a.chip:hover{border-color:var(--muted)}
+                    .chip.attention{color:var(--fg);background:var(--warn-bg);border-color:var(--warn-line)}
+                    .card-mark{color:var(--warn-line);margin-right:4px}
+                    .notices{margin:10px 0 0;padding:8px 12px 8px 28px;max-width:900px;font-size:13px;color:var(--muted);
                     background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l)}
                     .notices li{margin:2px 0}
-                    .coverage{margin-top:10px}.coverage h2{font-size:12px;color:var(--muted);font-weight:600;margin:0 0 3px}
+                    .coverage{margin-top:0}.coverage h3{font-size:12px;color:var(--muted);font-weight:600;margin:0 0 3px}
                     svg.bar{width:100%;height:14px;display:block;border-radius:4px}
                     .legend{list-style:none;padding:0;margin:5px 0 0;display:flex;flex-wrap:wrap;gap:4px 18px}
                     .legend-amount{color:var(--muted)}
@@ -200,13 +208,16 @@ final class Style
                     table.searching tbody:not(.result){display:none}
                     tbody.result.info td{color:var(--muted)}
                     .view-notice{color:var(--muted);margin:0 0 8px}.empty{color:var(--muted)}
-                    .status{border-top:2px solid var(--line);margin-top:16px;padding-top:8px}
+                    .status{margin-top:12px}
+                    .table-unit{margin:0 0 4px;font-size:12px;color:var(--muted);height:18px}
+                    .funds-overlap{max-width:720px;margin-top:16px}
                     .status summary{font-weight:600;padding:4px 0}.status #data-status>summary.warning{color:var(--warn-line)}
                     .status table summary{font-weight:400;padding:0 0 0 16px}
                     .status-line,.status-explanation{color:var(--muted);margin:6px 0}
                     .status-explanation{white-space:pre-line}
                     .status-warning{background:var(--warn-bg);padding:6px 10px;border-radius:var(--r);margin:6px 0}
-                    table.funds{margin-top:8px}table.funds th.retrieved{width:13em}table.funds tr.top>td:nth-child(3){white-space:nowrap}table.funds th.num{width:8em}
+                    table.funds th.num{width:10em}table.funds th.retrieved{width:13em}table.funds th.state{width:24%}
+                    table.funds tr.top>td:nth-child(6){white-space:nowrap}table.securities th.state{width:60%}
                     .health-ok{color:var(--cov-companies)}.health-warning{color:var(--warn-line)}.health-error{color:var(--cov-unresolved)}
                     footer{border-top:1px solid var(--line);margin-top:24px;padding-top:8px;color:var(--muted);font-size:12px}
                     @container (max-width:640px){table.breakdown tr.top>td:nth-child(3),table.breakdown tr.top>td:nth-child(4),
@@ -215,10 +226,13 @@ final class Style
                     overflow:hidden;visibility:hidden}}
                     @media (max-width:700px){:root{--bar-h:98px}.topbar{padding-top:6px}
                     .bar-main{flex-wrap:wrap;height:62px;gap:4px 8px;align-content:flex-start}
-                    .bar-main h1,.bar-main label{flex:1 1 60%;height:26px;line-height:26px;margin:0}
+                    .bar-main h1{flex:1 1 60%;height:26px;line-height:26px;margin:0}
                     .app-link{order:1}#grouping{order:2;flex:0 1 auto;min-width:0}#search{order:3;flex:1 1 90px}
                     .summary dd{font-size:16px}th,td{padding:4px}th.rank{width:calc(4ch + 8px)}
-                    table.funds th.retrieved{width:6.5em}table.funds th.num{width:5.5em}
-                    table.funds tr.top>td:nth-child(3){white-space:normal;overflow-wrap:normal}}
+                    table.funds th.num{width:5.5em}table.funds th:nth-child(5){width:8em}table.funds th.state{width:5.5em}
+                    table.funds th:nth-child(2),table.funds th:nth-child(4),table.funds th:nth-child(6),
+                    table.funds tr.top>td:nth-child(2),table.funds tr.top>td:nth-child(4),table.funds tr.top>td:nth-child(6){width:0;
+                    padding:0;font-size:0;overflow:hidden;visibility:hidden}
+                    .js .bar-main label{display:none}.sections{order:1;margin-left:0;flex:1 1 60%}.sections a{padding:0 8px}}
                     """;
 }

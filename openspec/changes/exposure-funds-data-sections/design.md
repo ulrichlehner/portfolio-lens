@@ -186,6 +186,35 @@ Addresses with a depth that no longer exists fall back to the overview, as speci
 - [Changed labels differ from terms used in Portfolio Performance] → the explanations name the
   calculation as before.
 
+## Changes during implementation
+
+- Branch: created from `chore/archive-breakdown-two-pane-layout` and not from `main`, because the
+  archive commit that syncs the specs was not merged yet. The pull request therefore contains that
+  commit unless the archive branch is merged first. No baseline run was made on the new branch; the
+  last full run on the same code was the one of the previous pull request.
+- D3: the warning rule is a class of its own, `DataQuality`, built from the status rows and the
+  summary. The summary got `largestDominant`, `valuationProblem`, `unresolvedValue` and
+  `unresolvedText`. A lookup counts as failed for the statuses failed, malformed, retained after
+  failure, key rejected and no access; rate limited and checking do not count.
+- D3: for an unconfirmed provider the status rows are not passed, so stale statuses raise no
+  warning; held funds without composition still do.
+- D4: a held fund is a security whose contributions have a fund as origin, the rule the fund
+  counts and the overlap already use. Every other listed row is a security of unknown
+  classification and stays in the data status.
+- D4: on a narrow screen value, companies and composition date are collapsed, not only value and
+  date.
+- D2: the data quality line is a chip that links to the Data quality section. The design system
+  got the token `--r-pill` for chips.
+- D8: tiles below the label size were already drawn without label and with tooltip and link, so
+  no drawing code changed.
+- Tests: the synthetic smoke portfolio always has unresolved value, so the page test checks the
+  warning there and in a scenario with failed lookups; the case without warning is covered by
+  `DataQualityTest`. The mark of the largest company is checked on the smoke portfolio, whose
+  largest company is far above 10 percent; the 12 percent and 8 percent cases are covered by the
+  presenter test.
+- On a real portfolio the explored levels of the Company view ended after seven levels. The rule
+  bounds the depth; it does not make it small for a long tail.
+
 ## Migration Plan
 
 No data or configuration migration. Addresses that name the overlap tab show the treemap. Rollback

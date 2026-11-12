@@ -118,39 +118,43 @@ REST tokens.
   Branches: `<type>/<openspec-change-name>`, for example `feature/standalone-lens-job`.
 - Conventional Commits: `<type>(<optional-scope>): <description>`, subject at most 50 characters,
   body wrapped at 72, explaining what and why.
-- Push, open pull requests and publish releases only when the user authorizes it.
+- Push and open pull requests only when the user authorizes it. Agents never merge pull requests,
+  because a merge into `main` can publish a release. Push release candidate tags only when the user
+  authorizes it.
 
 ## Versioning
 
 Portfolio Lens follows [Semantic Versioning 2.0.0](https://semver.org/).
 
-- The version lives in `pom.xml`. Between releases it is the next planned version with
-  `-SNAPSHOT`, for example `0.2.0-SNAPSHOT`. Lens shows it in its log and in the page footer.
-- A release is the commit on `main` tagged `vMAJOR.MINOR.PATCH`, for example `v0.1.0`, with the
-  `-SNAPSHOT` suffix removed. Tag and publish only when the user authorizes it.
-- A release candidate is tagged `vMAJOR.MINOR.PATCH-rc.N`, for example `v1.0.0-rc.1`, and is
-  published as a prerelease for testing an integration.
-- Every version change is a commit merged through a pull request, because `main` is protected:
-  `chore(release): 1.0.0-rc.1` sets the version, and after the merge the user tags the merge commit.
-  `chore(release): back to 1.0.0-SNAPSHOT` follows directly after a candidate. After a final
-  release, `chore(release): 1.0.1-SNAPSHOT` sets the next planned version (patch by default, raised
-  by the first `feat` or breaking commit).
-- Pushing a tag `v*` starts `.github/workflows/release.yml`. It fails unless the commit is on `main`
-  and the tag equals the `pom.xml` version, runs the tests, and publishes
-  `portfolio-lens-<version>.tar.gz` with a `.sha256` file. A manual run of the workflow on any
-  branch is a dry run that creates no tag and no release. Every jar in `target/lib/` must be listed
-  in `release/THIRD-PARTY.md`, and the README section "Notice" is copied into the archive and the
-  release notes, so keep both.
+- The version is not stored in `pom.xml`. It holds `<version>${revision}</version>` with the default
+  `0.0.0-SNAPSHOT`, and the release workflow passes the version as `-Drevision`. The latest release
+  tag is the version. A build without the parameter, such as `scripts/dev.sh`, reports
+  `0.0.0-SNAPSHOT` in the log and in the page footer.
+- A push to `main`, which is a merged pull request, publishes `vMAJOR.MINOR.PATCH` when the commits
+  since the last final release tag contain a `feat`, a `fix`, a `perf` or a breaking change. The
+  workflow creates the tag on the merged commit together with the GitHub release. A breaking change
+  (`!` after the type or scope, or a `BREAKING CHANGE:` footer) raises MAJOR, `feat` MINOR, `fix`
+  and `perf` PATCH. The highest applies once. `docs`, `chore`, `test`, `ci`, `refactor`, `build` and
+  `style` release nothing. Release candidate tags do not count as the last release.
+- The commit type therefore decides whether and how a merge releases. Choose it truthfully: a `feat`
+  or `fix` on `main` is published at once, so `main` must be releasable at any time.
+- A release candidate is a tag `vMAJOR.MINOR.PATCH-rc.N`, for example `v1.1.0-rc.1`, pushed by hand
+  on a commit on `main`. It is published as a prerelease for testing an integration. A final tag
+  `vMAJOR.MINOR.PATCH` pushed by hand on `main` is published as well. A tag on a commit outside
+  `main` fails.
+- A manual run of `.github/workflows/release.yml` on any branch is a dry run. It builds the archive
+  of the version a merge would release, or of the next patch version, with the suffix `-SNAPSHOT`,
+  and creates no tag and no release.
+- There are no version commits: no `chore(release)` commits and no `-SNAPSHOT` commits.
+- A release runs the tests and publishes `portfolio-lens-<version>.tar.gz` with a `.sha256` file.
+  Every jar in `target/lib/` must be listed in `release/THIRD-PARTY.md`, and the README section
+  "Notice" is copied into the archive and the release notes, so keep both.
 - The public interface that the version describes: the `lens` commands and options, the `LENS_*`
   settings and their meaning, the exit statuses, the fields of `status.json`, and the cache and
   state in `LENS_CACHE_DIR` (a release must read the data of the previous release or rebuild it by
   itself). The look of `index.html` is not part of it.
 - MAJOR: an incompatible change of that interface. MINOR: new functionality that stays compatible.
-  PATCH: compatible fixes. While the version is `0.y.z`, an incompatible change raises MINOR and
-  everything else raises PATCH; `1.0.0` follows once Lens runs in the server integration.
-- Conventional Commits show the effect: `feat` is at least MINOR, `fix` PATCH, and `!` or a
-  `BREAKING CHANGE:` footer MAJOR (MINOR before `1.0.0`). Name an interface change in the commit
-  body and in the pull request.
+  PATCH: compatible fixes. Name an interface change in the commit body and in the pull request.
 
 ## Delegating to subagents
 

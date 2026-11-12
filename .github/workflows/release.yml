@@ -1,10 +1,18 @@
-# Builds, tests and publishes a release for a pushed tag vX.Y.Z or vX.Y.Z-rc.N.
-# A manual run (workflow_dispatch) on any branch builds the archive and uploads it as a workflow
-# artifact, without a tag or a release.
+# Releases Portfolio Lens.
+#
+# - A push to main (a merged pull request) publishes vX.Y.Z when the commits since the last final
+#   release contain a feat, fix, perf or breaking change. scripts/next-version.sh computes the
+#   version; the tag is created with the release, on the pushed commit. Other pushes publish nothing.
+# - A pushed tag vX.Y.Z-rc.N or vX.Y.Z on main publishes that version.
+# - A manual run (workflow_dispatch) on any branch builds the archive of the version a merge would
+#   release, with -SNAPSHOT, and uploads it as a workflow artifact, without a tag or a release.
+#
+# The version is not stored in pom.xml; the build gets it as -Drevision.
 name: Release
 
 on:
   push:
+    branches: [main]
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+'
@@ -18,18 +26,95 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build archive
+  plan:
+    name: Decide the version
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
     permissions:
       contents: read
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      version: ${{ steps.plan.outputs.version }}
+      publish: ${{ steps.plan.outputs.publish }}
+      tag: ${{ steps.plan.outputs.tag }}
+      range: ${{ steps.plan.outputs.range }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
+
+      - name: Decide mode and version
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version=""
+          publish="false"
+          tag=""
+          range=""
+
+          if [ "${REF_TYPE}" = "tag" ]; then
+            # a pushed version tag: the tag is the version, and its commit must be on main
+            git fetch --no-tags origin main
+            if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+              echo "Commit ${GITHUB_SHA} is not on main" >&2
+              exit 1
+            fi
+            version="${REF_NAME#v}"
+            publish="true"
+            tag="${REF_NAME}"
+          else
+            # the last final release reachable from this commit; release candidates do not count
+            last_tag="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' --exclude '*-rc.*' 2>/dev/null || true)"
+            last="${last_tag#v}"
+            last="${last:-0.0.0}"
+            range="${last_tag:+${last_tag}..}HEAD"
+            next="$(git log -z --no-merges --format=%B "${range}" | scripts/next-version.sh "${last}")"
+            echo "Last final release: ${last_tag:-none}; next version: ${next:-none}"
+
+            if [ "${EVENT}" = "workflow_dispatch" ]; then
+              # dry run: the version a merge would release, or the next patch version
+              if [ -z "${next}" ]; then
+                next="${last%.*}.$(( ${last##*.} + 1 ))"
+              fi
+              version="${next}-SNAPSHOT"
+            elif git tag --points-at HEAD | grep -Eqx 'v[0-9]+\.[0-9]+\.[0-9]+'; then
+              echo "This commit already has a final release tag. Nothing to release."
+            elif [ -z "${next}" ]; then
+              echo "No feat, fix, perf or breaking change since ${last_tag:-the start}. Nothing to release."
+            else
+              if git rev-parse -q --verify "refs/tags/v${next}" > /dev/null; then
+                echo "The tag v${next} already exists on another commit" >&2
+                exit 1
+              fi
+              version="${next}"
+              publish="true"
+              tag="v${next}"
+            fi
+          fi
+
+          {
+            echo "version=${version}"
+            echo "publish=${publish}"
+            echo "tag=${tag}"
+            echo "range=${range}"
+          } >> "$GITHUB_OUTPUT"
+          echo "version=${version:-none} publish=${publish} tag=${tag:-none}"
+
+  build:
+    name: Build archive
+    needs: plan
+    if: needs.plan.outputs.version != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4
         with:
@@ -42,31 +127,8 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Read the version
-        id: version
-        run: |
-          version="$(mvn -B -q help:evaluate -Dexpression=project.version -DforceStdout)"
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "pom.xml version: ${version}"
-
-      - name: Check the tag
-        if: github.ref_type == 'tag'
-        env:
-          TAG: ${{ github.ref_name }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          if [ "${TAG}" != "v${VERSION}" ]; then
-            echo "Tag ${TAG} does not match the pom.xml version ${VERSION}" >&2
-            exit 1
-          fi
-          git fetch --no-tags origin main
-          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
-            echo "Commit ${GITHUB_SHA} is not on main" >&2
-            exit 1
-          fi
-
       - name: Build and test
-        run: mvn -B verify
+        run: mvn -B -Drevision="${VERSION}" verify
 
       - name: Fail if the Node.js tests were skipped
         run: |
@@ -86,8 +148,6 @@ jobs:
           done
 
       - name: Create the archive
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
         run: |
           dir="portfolio-lens-${VERSION}"
           mkdir -p "dist/${dir}/lib"
@@ -103,8 +163,6 @@ jobs:
           (cd dist && sha256sum "${dir}.tar.gz" > "${dir}.tar.gz.sha256" && sha256sum -c "${dir}.tar.gz.sha256")
 
       - name: Check the archive
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
         run: |
           mkdir check
           tar -C check -xzf "dist/portfolio-lens-${VERSION}.tar.gz"
@@ -121,7 +179,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: portfolio-lens-${{ steps.version.outputs.version }}
+          name: portfolio-lens-${{ needs.plan.outputs.version }}
           path: |
             dist/portfolio-lens-*.tar.gz
             dist/portfolio-lens-*.tar.gz.sha256
@@ -129,25 +187,30 @@ jobs:
 
   release:
     name: Publish release
-    if: github.ref_type == 'tag'
-    needs: build
+    if: needs.plan.outputs.publish == 'true'
+    needs: [plan, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - uses: actions/download-artifact@v4
         with:
-          name: portfolio-lens-${{ needs.build.outputs.version }}
+          name: portfolio-lens-${{ needs.plan.outputs.version }}
           path: dist
 
       - name: Create the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
-          VERSION: ${{ needs.build.outputs.version }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          RANGE: ${{ needs.plan.outputs.range }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
           archive="dist/portfolio-lens-${VERSION}.tar.gz"
           base="https://github.com/${GITHUB_REPOSITORY}/blob/${TAG}/README.md"
@@ -173,10 +236,26 @@ jobs:
                 echo "This release candidate is for testing the server integration."
                 ;;
             esac
+            # a release on merge lists what changed since the previous final release
+            if [ -n "${RANGE}" ]; then
+              changes="$(git log -z --no-merges --format=%B "${RANGE}" | scripts/next-version.sh --changes)"
+              if [ -n "${changes}" ]; then
+                echo
+                echo "## Changes"
+                echo
+                printf '%s\n' "${changes}" | sed 's/^/- /'
+              fi
+            fi
           } > notes.md
           flags=()
           case "${TAG}" in
             *-rc.*) flags+=(--prerelease) ;;
           esac
+          # a pushed tag exists already; for a merge the release creates the tag on the merged commit
+          if [ "${REF_TYPE}" = "tag" ]; then
+            flags+=(--verify-tag)
+          else
+            flags+=(--target "${GITHUB_SHA}")
+          fi
           gh release create "${TAG}" "${archive}" "${archive}.sha256" \
-            --verify-tag --title "Portfolio Lens ${VERSION}" --notes-file notes.md "${flags[@]}"
+            --title "Portfolio Lens ${VERSION}" --notes-file notes.md "${flags[@]}"

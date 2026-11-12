@@ -35,6 +35,9 @@ jobs:
       - name: Test the version rule of the release workflow
         run: bash scripts/next-version.test.sh
 
+      - name: Test the release preview
+        run: bash scripts/release-preview.test.sh
+
       - name: Build and test
         run: mvn -B verify
 
@@ -44,3 +47,21 @@ jobs:
             echo "Node.js tests were skipped" >&2
             exit 1
           fi
+
+  # Shows in the pull request what the merge releases, and warns when it changes shipped code
+  # without a feat, fix, perf or breaking commit. A warning does not fail the check.
+  release-preview:
+    name: Release preview
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: What the merge releases
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/release-preview.sh "origin/${BASE_REF}" "${HEAD_SHA}" | tee -a "${GITHUB_STEP_SUMMARY}"

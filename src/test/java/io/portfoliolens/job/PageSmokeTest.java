@@ -152,15 +152,16 @@ public class PageSmokeTest
     }
 
     @Test
-    public void testAppLinkInTheHeader() throws Exception
+    public void testAppLinkPill() throws Exception
     {
         var page = render(Map.of(LensConfig.APP_LINK_URL, "https://example.org/?a=1&b=2", LensConfig.APP_LINK_LABEL,
                         "PP & Co <test>"));
-        var link = "<p class=\"app-link\"><a href=\"https://example.org/?a=1&amp;b=2\" rel=\"noopener\">"
-                        + "PP &amp; Co &lt;test&gt;</a></p>";
+        var link = "<a class=\"app-link\" href=\"https://example.org/?a=1&amp;b=2\" rel=\"noopener\">"
+                        + "PP &amp; Co &lt;test&gt;</a>";
         assertTrue(page.contains(link), page.substring(0, Math.min(page.length(), 1500)));
         var header = page.substring(page.indexOf("<header"), page.indexOf("</header>"));
-        assertTrue(header.contains(link));
+        assertFalse(header.contains("app-link"), "the link is not part of the top bar");
+        assertTrue(page.indexOf(link) > page.indexOf("</footer>"), "the pill follows the footer");
         assertFalse(header.contains("target="));
         assertFalse(page.contains("PP & Co <test>"));
         assertEquals(1, page.split("app-link\"").length - 1);
@@ -172,7 +173,7 @@ public class PageSmokeTest
     public void testNoAppLinkWithoutSetting() throws Exception
     {
         var page = render();
-        assertFalse(page.contains("<p class=\"app-link\">"));
+        assertFalse(page.contains("<a class=\"app-link\""));
         var header = page.substring(page.indexOf("<header"), page.indexOf("</header>"));
         assertFalse(header.contains("app-link"), "no link and no placeholder in the header");
         assertTrue(Pattern.compile("<input type=\"search\"[^>]*>\\s*<nav class=\"sections\"[^>]*>(<a [^>]*>[^<]*</a>)+</nav>\\s*</div>")

@@ -41,11 +41,11 @@
 - [x] 6.1 Change the labels in `Texts` and move the currency from the column heads to the caption line of the table; verify in `PageSmokeTest` that the heads read "Held directly", "Through funds", "Total" and "Share" in every breakdown table and that the old terms "Resolved", "Indirect" and "Funds broken down" do not occur in the page
 - [x] 6.2 Style the sections, the data quality line, the fund table and the overlap figure with the tokens and blocks of the design system only; verify by reading the diff of `Style.java` that it adds no colour, radius, control height or shadow value outside `:root`
 - [x] 6.3 On the synthetic page at 1440, 700 and 375 pixels width, verify that no column head is truncated, that the fund table keeps its column positions when a detail row opens, and that the page has no horizontal scrollbar
-- [ ] 6.4 Check light and dark theme in a browser that follows the system colour scheme and verify that the three sections keep visible boundaries in both
+- [x] 6.4 Check light and dark theme in a browser that follows the system colour scheme and verify that the three sections keep visible boundaries in both
 
 ## 7. Whole page checks and documentation
 
-- [ ] 7.1 Open the synthetic page with scripts disabled and verify the "Scripts disabled" scenario, including that the section links work
+- [x] 7.1 Open the synthetic page with scripts disabled and verify the "Scripts disabled" scenario, including that the section links work
 - [x] 7.2 Repeat the "Stable layout" checks of the previous change for grouping change, row opening, tab change and treemap level, and verify that the amount columns keep their horizontal position
 - [x] 7.3 Run `scripts/dev.sh test LargePortfolioTest` and verify that the page stays below 3 MB and 30,000 elements
 - [x] 7.4 Update the README paragraph on the page (sections, fund table, where the overlap matrix is) and verify that it describes only what the page does
@@ -62,13 +62,8 @@
 
 ## Workflow follow-up
 
-Open in this change:
-
-- Task 6.4: the dark values of the tokens are not checked, because the preview used for the checks
-  always renders light. Check once in a browser that follows the system colour scheme.
-- Task 7.1: without scripts the structure is verified from the page source (three sections shown,
-  section links are plain anchors, both Company charts shown). The rendered page without scripts
-  could not be shown in the preview; check once in a browser with scripts disabled.
+Tasks 6.4 and 7.1 were checked by the user in a browser after the pull request, not in the
+preview used during implementation.
 
 - Archive the change after the pull request is merged.
 - Next change for the table and treemap: share bars in table rows, a second line under company

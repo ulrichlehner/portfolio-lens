@@ -8,15 +8,15 @@ onboarding states, refresh actions, data status and interaction behavior.
 ## Requirements
 
 ### Requirement: Summary before detail
-The page SHALL open with a single header line naming the valuation date and the generation time, followed by a summary of the securities value, the resolved share, the share of the ten largest companies and the number of decomposed funds out of held funds. Explanatory notices SHALL NOT appear as permanent paragraphs; they SHALL be reachable through an indicator with a tooltip or the data status.
+The Exposure section SHALL open with a summary of the securities value, the share of the ten largest companies, the largest company and the spread, followed by the data quality line. The top bar SHALL name the valuation date and the generation time. Explanatory notices SHALL NOT appear as permanent paragraphs; they SHALL be reachable through the Data quality section.
 
 #### Scenario: Partial coverage with unvalidated weights
 - **WHEN** the result is partial and contains compositions whose weights are not validated
-- **THEN** the summary shows the resolved share, an indicator marks the unvalidated weights, and its tooltip explains the limitation without additional paragraphs above the table.
+- **THEN** the data quality line shows the looked-through share, and the Data quality section explains the limitation without additional paragraphs above the table.
 
 #### Scenario: Missing valuation
 - **WHEN** a held security cannot be valued in the reporting currency
-- **THEN** the summary withholds whole-portfolio percentages and the indicator names the missing valuation.
+- **THEN** the summary withholds whole-portfolio percentages and the data quality line carries a warning that names the missing valuation.
 
 ### Requirement: Coverage bar
 The view SHALL show a horizontal bar that splits the securities value into company exposure, ungrouped equities, cash and other assets, and unresolved value. Segments SHALL be proportional to value, SHALL be labelled in a tooltip with amount and percentage, and SHALL NOT hide a nonzero unresolved remainder through rounding.
@@ -75,23 +75,23 @@ The page SHALL show one banner for the most relevant state: no API key configure
 - **THEN** no banner is shown and the page displays the direct breakdown.
 
 ### Requirement: Compact data status
-The data status SHALL list each held fund and each held security of still unknown classification, with its name, a status icon and short status text, retrieval date and decomposed share. Securities classified as directly held shares SHALL NOT be listed. The row tooltip SHALL keep the attempt, retry, provider refresh, holdings date, freshness, source data and denominator details. One line SHALL show storage state, company data state and assumed-company count, with details in its tooltip.
+The data status in the Data quality section SHALL list each held security of still unknown classification, with its name, a status icon and short status text. Held funds SHALL NOT be listed there; they are listed in the fund table. Securities classified as directly held shares SHALL NOT be listed. One line SHALL show storage state, company data state and assumed-company count, with details reachable from it.
 
 #### Scenario: Persistent storage and completed company data
 - **WHEN** compositions are stored in the cache and company data is loaded
-- **THEN** one line names the storage and the company data with the assumed-company count, and the fund rows stay visible below it.
+- **THEN** one line names the storage and the company data with the assumed-company count.
 
 #### Scenario: Session-only storage
 - **WHEN** a provider key is configured but local storage is not confirmed
 - **THEN** a separate warning line states that provider data is not used until local storage is confirmed, and the summary line keeps the company data state and the assumed-company count.
 
 #### Scenario: Fund with failed refresh and retained data
-- **WHEN** the latest refresh failed and an earlier stored composition is used
-- **THEN** the row shows a warning icon and the earlier retrieval date, and the tooltip names the failure and the original dates.
+- **WHEN** the latest refresh of a fund failed and an earlier stored composition is used
+- **THEN** the data status does not list the fund, the status row names the failure, and the fund table shows the warning for that fund.
 
 #### Scenario: Composition rejected by validation
 - **WHEN** the provider returned a composition that validation rejects, for example because of negative weights or a total above 100 percent
-- **THEN** the row states that the composition was rejected and names the reason in short text, the decomposed share shows a dash instead of zero, and the tooltip explains that the fund stays unresolved.
+- **THEN** the data status does not list the fund, the status row names the rejection, and the fund table states the reason for that fund.
 
 #### Scenario: Security without provider credentials
 - **WHEN** a held security is unclassified and no API key is configured
@@ -102,7 +102,7 @@ The data status SHALL list each held fund and each held security of still unknow
 - **THEN** the row states that the lookup is pending for a later run, and the row disappears in the first page generated after the security is classified as a directly held share.
 
 ### Requirement: Data status summary row
-An always-visible status row SHALL separate the table from the data status, SHALL open and close the data status when activated, and SHALL state the outcome of the run that generated the page in plain words.
+An always-visible status row SHALL head the data status in the Data quality section, SHALL open and close the data status when activated, and SHALL state the outcome of the run that generated the page in plain words.
 
 #### Scenario: Toggle
 - **WHEN** the user activates the row
@@ -206,30 +206,34 @@ The "Breakdown by" selector SHALL offer "Revenue region". It SHALL show the expo
 - **THEN** both groupings keep the same total, and the labels make clear that one shows headquarters and the other revenue.
 
 ### Requirement: Overlap chart
-The chart pane SHALL offer an "Overlap" chart kind showing each pair of decomposed funds once, as the lower triangle of a fund matrix without diagonal. Each cell SHALL show the overlap percentage and the number of shared companies, shaded by size. A cell tooltip SHALL name both funds, the overlap, the number of shared companies and the five largest shared companies. With fewer than two decomposed funds, the chart SHALL show a short message instead of a matrix.
+The Funds section SHALL show an overlap matrix with each pair of decomposed funds once, as the lower triangle of a fund matrix. Each cell SHALL show the overlap percentage and the number of shared companies, shaded by size. Its tooltip SHALL name both funds, these two values and the five largest shared companies. With fewer than two decomposed funds, the section SHALL show a short message instead. The matrix SHALL NOT depend on the selected grouping.
 
 #### Scenario: Two decomposed funds
 - **WHEN** the portfolio holds two decomposed funds
-- **THEN** the overlap chart shows one cell for the pair with its overlap and shared company count.
+- **THEN** the overlap matrix shows one cell for the pair with its overlap and shared company count.
 
 #### Scenario: Single fund
 - **WHEN** only one fund is decomposed
-- **THEN** the overlap chart states that at least two decomposed funds are needed.
+- **THEN** the Funds section states that at least two decomposed funds are needed.
+
+#### Scenario: Grouping change
+- **WHEN** the user changes the grouping from Company to Sector
+- **THEN** the overlap matrix is unchanged.
 
 ### Requirement: Concentration summary
-The summary SHALL show the concentration as the approximate number of equally sized companies, computed as one divided by the sum of the squared company shares, with the number of companies it is based on. Its tooltip SHALL explain the calculation with an example, say that smaller means more concentrated, and name the basis. It SHALL also show the largest company and its share. When one company exceeds 10 percent of the portfolio value, the attention indicator SHALL name it with its share.
+The summary SHALL show the spread as "like N equal companies", where N is one divided by the sum of the squared company shares, with the number of companies it is based on. Its explanation SHALL describe the calculation with an example and say that smaller means more concentrated. The summary SHALL also show the largest company and its share, and SHALL mark that figure when the company exceeds 10 percent of the portfolio value.
 
 #### Scenario: Evenly spread
 - **WHEN** the company exposure is split evenly across 100 companies
-- **THEN** the summary shows a concentration of about 100 companies out of 100 companies.
+- **THEN** the summary shows a spread like about 100 equal companies out of 100 companies.
 
 #### Scenario: Uneven split
 - **WHEN** three companies hold 50, 25 and 25 percent of the company exposure
-- **THEN** the summary shows a concentration of about 2.67 companies, and the tooltip shows the same calculation next to the evenly split example.
+- **THEN** the summary shows a spread like about 2.67 equal companies, and the explanation shows the same calculation next to the evenly split example.
 
 #### Scenario: Dominant company
 - **WHEN** one company accounts for 12 percent of the portfolio value
-- **THEN** the summary shows it as the largest company and the attention indicator names it with its 12 percent share.
+- **THEN** the summary shows it as the largest company with its 12 percent share and marks that figure.
 
 ### Requirement: Pending lookup wording
 The status row SHALL distinguish lookups pending for a later run from answered ones, and answered results from usable data. It SHALL NOT describe a pending lookup as loaded or available.
@@ -243,22 +247,26 @@ The status row SHALL distinguish lookups pending for a later run from answered o
 - **THEN** the row states how many funds have data and how many have no composition.
 
 ### Requirement: Separated data status section
-The chart and table area SHALL be visually separated from the header above and from the data status below, so that each reads as a distinct section. The data status SHALL start collapsed when the page loads, and a visible status row SHALL remain between the table and the data status in both states.
+The three page sections SHALL be visually separated from each other and from the top bar, so that each reads as a distinct section. The coverage bar and its legend SHALL be part of the Data quality section. The data status SHALL start collapsed when the page loads, and its status row SHALL be visible in both states.
 
 #### Scenario: Data status below the table
-- **WHEN** the data status is open below the chart and table
-- **THEN** a visible boundary and spacing separate the two areas in light and dark theme.
+- **WHEN** the data status is open in the Data quality section
+- **THEN** a visible boundary and spacing separate the Exposure, Funds and Data quality sections in light and dark theme.
 
 #### Scenario: Header above the charts
 - **WHEN** the page shows a result
-- **THEN** a visible boundary separates the summary and coverage legend from the chart and table.
+- **THEN** a visible boundary separates the summary and the data quality line from the chart and table.
+
+#### Scenario: Coverage bar
+- **WHEN** the page shows a result
+- **THEN** the coverage bar and its legend are shown in the Data quality section and not between the summary and the charts.
 
 #### Scenario: Page load
 - **WHEN** the page is opened or reloaded
 - **THEN** the data status is collapsed and the status row is visible.
 
 ### Requirement: Self-contained static page
-The Breakdown SHALL be one HTML file with inline styles, server-rendered SVG charts, embedded result data and inline scripts. It SHALL load nothing from the network. Without scripts it SHALL still show the summary, the coverage bar, the Company charts, the overlap matrix, the largest company rows of the table and the data status.
+The Breakdown SHALL be one HTML file with inline styles, server-rendered SVG charts, embedded result data and inline scripts. It SHALL load nothing from the network. Without scripts it SHALL still show the summary, the Company charts, the largest company rows of the table, the fund table, the overlap matrix, the coverage bar and the data status.
 
 #### Scenario: Opened offline
 - **WHEN** the page is opened from disk without network access
@@ -266,7 +274,7 @@ The Breakdown SHALL be one HTML file with inline styles, server-rendered SVG cha
 
 #### Scenario: Scripts disabled
 - **WHEN** the page is opened with scripts disabled
-- **THEN** the Company grouping is shown with its treemap, its bar chart and the overlap matrix below each other and its 200 largest company rows with their contributions, and only grouping, chart tabs, treemap levels, search, sorting, further rows and linked selection are unavailable.
+- **THEN** the Company grouping is shown with its treemap and its bar chart below each other and its 200 largest company rows with their contributions, the Funds and Data quality sections are shown below, and only grouping, chart tabs, treemap levels, search, sorting, further rows and linked selection are unavailable.
 
 ### Requirement: Page size
 The page SHALL hold each company once, in the embedded data, and render the 200 largest company rows and the group rows; further rows SHALL be built from the embedded data when the user asks for them, expands a group or selects a chart element. For a portfolio of about 4,000 companies the page SHALL stay below 3 MB and 30,000 elements.
@@ -298,7 +306,7 @@ Each treemap tile SHALL be coloured by the share of the company held directly, o
 - **THEN** that tile is grey, not a colour of the scale.
 
 ### Requirement: Explorable merged tile
-The merged tile SHALL state the number of its companies, their total share and the size limit, SHALL be reachable by keyboard, and SHALL be drawn as one grey tile. Activating it SHALL show its companies as a treemap of their own over the whole chart, merging again below the minimum area; a group's merged tile SHALL show the companies of that group only.
+The merged tile SHALL state the number of its companies, their total share and the size limit, and SHALL be reachable by keyboard. Activating it SHALL show its companies, of that group only for a group's tile, as a treemap over the whole chart. On such a level the companies still merged SHALL NOT cover more than half of the chart, unless the level already shows 3,000 companies. Tiles too small for a label SHALL keep their tooltip and selection.
 
 #### Scenario: Label of the merged tile
 - **WHEN** 3,882 synthetic companies with together 33.1 % of the value are merged, each below 0.05 %
@@ -311,6 +319,14 @@ The merged tile SHALL state the number of its companies, their total share and t
 #### Scenario: Merged tile of a zoomed group
 - **WHEN** the user has zoomed into a sector and activates its merged tile
 - **THEN** the treemap shows the smaller companies of that sector only.
+
+#### Scenario: Many companies of equal size
+- **WHEN** the user activates a merged tile that holds 2,800 companies of equal value
+- **THEN** the level shows 1,400 of them as tiles of their own without labels and one merged tile covering half of the chart, and activating that merged tile shows the remaining 1,400 companies without a further merged tile.
+
+#### Scenario: Selecting an unlabelled company
+- **WHEN** the user activates a tile that is drawn without label
+- **THEN** its tooltip names the company and its share, and its table row is selected.
 
 ### Requirement: Treemap level navigation
 While the treemap shows a group or the companies of a merged tile, a breadcrumb above the treemap SHALL name the levels and lead back to each of them, a visible control SHALL return one level, Escape SHALL return one level, and the page address SHALL keep the level next to the grouping so that a reload shows the same level. An address whose level does not exist in the page SHALL show the overview of its grouping.
@@ -390,30 +406,34 @@ On a viewport at least 1100 CSS pixels wide, the page SHALL show the charts in a
 - **THEN** every part of the chart pane can still be reached by scrolling.
 
 ### Requirement: Top bar
-The page SHALL show a bar that stays at the top of the viewport while scrolling. It SHALL contain the "Breakdown by" selector, the company search, the configured application link, the generation time and the staleness notice. The summary and the coverage bar SHALL follow below the bar and SHALL scroll with the page.
+The page SHALL show a bar that stays at the top of the viewport while scrolling. It SHALL contain the "Breakdown by" selector, the company search, the links to the three page sections, the configured application link, the generation time and the staleness notice. The summary SHALL follow below the bar and SHALL scroll with the page.
 
 #### Scenario: Scrolled down
 - **WHEN** the user has scrolled to the end of the table
-- **THEN** the grouping selector, the search field and the application link are visible without scrolling back.
+- **THEN** the grouping selector, the search field, the section links and the application link are visible without scrolling back.
 
 #### Scenario: No application link configured
 - **WHEN** no application link is configured
 - **THEN** the bar contains no application link and no empty placeholder for it.
 
 ### Requirement: Chart tabs
-The chart pane SHALL offer the chart kinds Treemap, Top 20 and Overlap as tabs and SHALL show one of them at a time, Treemap first. The selected chart kind SHALL be kept when the grouping changes and SHALL be kept in the page address. The tabs SHALL be operable by keyboard and SHALL expose which one is selected to assistive technology.
+The chart pane SHALL offer the chart kinds Treemap and Top 20 as tabs and SHALL show one of them at a time, Treemap first. The selected chart kind SHALL be kept when the grouping changes and SHALL be kept in the page address. The tabs SHALL be operable by keyboard and SHALL expose which one is selected to assistive technology. A page address that names the overlap chart kind SHALL show the Treemap tab.
 
 #### Scenario: Switch to the overlap matrix
-- **WHEN** the user selects the Overlap tab
-- **THEN** the chart pane shows the overlap matrix in place of the treemap and the table stays where it is.
+- **WHEN** the user looks for the overlap matrix in the chart pane
+- **THEN** the chart pane offers no Overlap tab, and the matrix is shown in the Funds section that the top bar links to.
 
 #### Scenario: Grouping change keeps the tab
 - **WHEN** the Top 20 tab is selected and the user changes the grouping from Company to Sector
 - **THEN** the chart pane shows the bar chart of the largest sectors.
 
 #### Scenario: Reload
-- **WHEN** the user reloads the page with the Overlap tab selected
-- **THEN** the page shows the Overlap tab again.
+- **WHEN** the user reloads the page with the Top 20 tab selected
+- **THEN** the page shows the Top 20 tab again.
+
+#### Scenario: Address of an earlier page
+- **WHEN** the page is opened with an address that names the overlap chart kind
+- **THEN** the chart pane shows the Treemap tab of the grouping in the address.
 
 ### Requirement: Treemap group zoom
 In every grouping except Company, activating a group in the treemap SHALL show the companies of that group as a treemap of their own over the whole chart, with the companies below the minimum tile area merged into one tile. Activating a company tile on that level SHALL select the company. Tile areas on a zoomed level SHALL stay proportional to the values within that group.
@@ -461,7 +481,7 @@ Changing the grouping, sorting, opening or closing a row, expanding a group, loa
 - **THEN** the staleness notice appears in the top bar and the summary, charts and table do not move.
 
 #### Scenario: Chart tab change
-- **WHEN** the user switches between the Treemap, Top 20 and Overlap tabs
+- **WHEN** the user switches between the Treemap and Top 20 tabs
 - **THEN** the chart pane keeps its height and the table does not move.
 
 ### Requirement: Explanations without hover
@@ -474,3 +494,78 @@ Every explanation that the page offers as a tooltip of a summary value, the cove
 #### Scenario: Concentration
 - **WHEN** the user moves the focus to the concentration value with the keyboard and activates its explanation
 - **THEN** the explanation of the calculation is shown as text.
+
+### Requirement: Page sections
+The page SHALL present its content in three sections in this order: Exposure, Funds and Data quality. Each section SHALL have a visible heading. The top bar SHALL link to each section, and following a link SHALL show the heading of that section below the bar. Without scripts all three sections SHALL be shown.
+
+#### Scenario: Jump to the funds
+- **WHEN** the user activates the Funds link in the top bar while the table of the Exposure section is in view
+- **THEN** the page shows the Funds section with its heading visible below the bar.
+
+#### Scenario: Section order
+- **WHEN** the page shows a result
+- **THEN** the summary, the charts and the table come first, the fund table and the overlap matrix second, and the coverage bar and the data status third.
+
+#### Scenario: No fund held
+- **WHEN** the portfolio holds no fund
+- **THEN** the Funds section states that no fund is held and shows neither a table nor a matrix.
+
+### Requirement: Fund table
+The Funds section SHALL list each held fund once, largest value first, with its name, value, share of the securities value, number of contributed companies, looked-through share, composition date and status. The attempt and source details of a fund SHALL be reachable from its row by click, tap and keyboard without changing the position or width of the columns. The collapse marker of a row SHALL NOT overlap the fund name.
+
+#### Scenario: Two funds
+- **WHEN** the portfolio holds a fund worth 6,000 and a fund worth 4,000 in a securities value of 20,000
+- **THEN** the table lists the larger fund first with a share of 30.00% and the smaller fund second with a share of 20.00%.
+
+#### Scenario: Fund without composition
+- **WHEN** a held fund has no usable composition
+- **THEN** its row shows a dash for the number of companies and for the looked-through share, and its status text names the reason.
+
+#### Scenario: Fund with failed refresh and retained data
+- **WHEN** the latest refresh of a fund failed and an earlier stored composition is used
+- **THEN** the row shows a warning icon and the earlier composition date, and the details name the failure and the original dates.
+
+#### Scenario: Composition rejected by validation
+- **WHEN** the provider returned a composition that validation rejects, for example because of negative weights or a total above 100 percent
+- **THEN** the row states that the composition was rejected and names the reason in short text, the looked-through share shows a dash instead of zero, and the details explain that the fund stays unresolved.
+
+#### Scenario: Open the details of a fund
+- **WHEN** the user opens the details of a fund row
+- **THEN** the details appear below the row, the marker and the fund name do not overlap, and every column keeps its position and width.
+
+### Requirement: Data quality line
+The Exposure section SHALL show one line below the summary that states the looked-through share, the number of funds looked through out of held funds, and a state. The line SHALL lead to the Data quality section.
+
+#### Scenario: Everything looked through
+- **WHEN** every held fund is looked through, no lookup failed and the unresolved value is zero
+- **THEN** the line shows the looked-through share and the fund count without a warning marker.
+
+#### Scenario: Follow the line
+- **WHEN** the user activates the line
+- **THEN** the page shows the Data quality section with its heading visible below the bar.
+
+### Requirement: Data quality warning
+The state of the data quality line SHALL be a warning only when a lookup failed, a composition was rejected, a held fund has no usable composition, a held security cannot be valued in the reporting currency, or the unresolved value is not zero. The warning SHALL name the first of these that applies. Compositions whose weights are not validated SHALL NOT raise a warning by themselves.
+
+#### Scenario: Unvalidated weights only
+- **WHEN** every held fund is looked through, nothing failed, the unresolved value is zero and the provider weights are not validated
+- **THEN** the line carries no warning marker, and the Data quality section explains that the weights are not validated.
+
+#### Scenario: Failed lookup
+- **WHEN** the lookup of one fund failed
+- **THEN** the line carries a warning marker and names the failed lookup.
+
+#### Scenario: Unresolved value
+- **WHEN** no lookup failed and 0.5 percent of the securities value is unresolved
+- **THEN** the line carries a warning marker and names the unresolved value.
+
+### Requirement: Plain labels
+The page SHALL name the share of the securities value that is assigned to companies, ungrouped equities, cash or other assets "Looked through", the number of decomposed funds "Funds looked through", the value held as shares "Held directly", the value held through funds "Through funds", and the concentration figure "Spread". The same term SHALL be used in the summary, the table heads, the chart legends and the Data quality section.
+
+#### Scenario: Table heads and legend
+- **WHEN** the page shows the Company table and the treemap legend
+- **THEN** the amount columns read "Held directly", "Through funds" and "Total", and the legend uses "Held directly" and "Through funds".
+
+#### Scenario: Currency of the amount columns
+- **WHEN** the reporting currency is EUR
+- **THEN** the table names the currency once for all amount columns and the column heads are not truncated at a table pane width of 700 pixels.

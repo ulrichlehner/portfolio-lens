@@ -163,7 +163,8 @@ Overlapping runs are safe: a run that finds another one active exits without cha
   serve it only behind authentication.
 
 The page has three sections, and a bar that stays at the top links to them and holds the grouping,
-the company search, the application link and the generation time.
+the company search and the generation time. The application link is a small pill fixed at the
+bottom right of the window.
 
 - Exposure: the summary, one line on data quality, and on screens at least 1100 pixels wide two
   panes: the chart on the left stays in view while the table on the right scrolls. Tabs switch the

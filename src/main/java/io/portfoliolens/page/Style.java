@@ -35,7 +35,8 @@ final class Style
                     --cov-companies:#7b5ea7;--cov-ungrouped:#a3b84a;--cov-cash:#9aa1a8;--cov-unverified:#e0a43a;
                     --cov-unresolved:#c4473a;--warn-bg:#fff4dc;--warn-line:#d79a1e;--info-bg:#eef4fb;--target:#fff1b8;
                     --mx-0:#eef3f8;--mx-1:#1f4e89;--bar-h:68px;
-                    --accent:#2563a8;--r:6px;--r-l:10px;--r-pill:999px;--ctl-h:30px;--shadow:0 4px 14px rgba(0,0,0,.18)}
+                    --accent:#2563a8;--r:6px;--r-l:10px;--r-pill:999px;--ctl-h:30px;--shadow:0 4px 14px rgba(0,0,0,.18);
+                    --pill-bg:rgba(49,49,49,.7);--pill-fg:#ffffff}
                     @media (prefers-color-scheme:dark){:root{--bg:#15181b;--fg:#e6e8ea;--muted:#a1a8af;--line:#33393f;
                     --panel:#1d2125;--tm-other:#3f566e;
                     --cov-companies:#a58ad6;--cov-ungrouped:#b9cc5c;--cov-cash:#7c848c;--cov-unverified:#e8b45a;
@@ -57,10 +58,10 @@ final class Style
                     .js .bar-main h1{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
                     .bar-main label{font-size:17px;font-weight:600;white-space:nowrap}
                     html:not(.js) .bar-main label,html:not(.js) #grouping{display:none}
-                    select,input[type=search],.back,.show-more,.app-link a{font:inherit;height:var(--ctl-h);padding:0 10px;
+                    select,input[type=search],.back,.show-more{font:inherit;height:var(--ctl-h);padding:0 10px;
                     color:var(--fg);background-color:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
-                    select,.back,.show-more,.app-link a{cursor:pointer}
-                    select:hover,input[type=search]:hover,.back:hover,.show-more:hover,.app-link a:hover{border-color:var(--muted)}
+                    select,.back,.show-more{cursor:pointer}
+                    select:hover,input[type=search]:hover,.back:hover,.show-more:hover{border-color:var(--muted)}
                     select:focus-visible,input[type=search]:focus-visible{outline-offset:-1px}
                     select{appearance:none;-webkit-appearance:none;padding-right:28px;font-weight:600;
                     background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),
@@ -73,13 +74,19 @@ final class Style
                     .sections a{display:inline-flex;align-items:center;height:var(--ctl-h);padding:0 10px;border-radius:var(--r);
                     color:var(--muted);text-decoration:none}
                     .sections a:hover{color:var(--fg);background:var(--line)}
-                    .app-link{margin:0 0 0 8px;white-space:nowrap}
                     .page-section{scroll-margin-top:calc(var(--bar-h) + 8px);margin-top:24px;padding-top:14px;
                     border-top:1px solid var(--line)}
                     #exposure{margin-top:0;padding-top:0;border-top:0}
                     .page-section>h2{font-size:15px;margin:0 0 10px}
-                    .app-link a{display:inline-flex;align-items:center;text-decoration:none;font-weight:600}
-                    .app-link a::before{content:"\\2039";margin-right:6px;color:var(--muted)}
+                    .app-link{position:fixed;right:12px;bottom:12px;z-index:30;display:inline-flex;align-items:center;
+                    max-width:calc(100vw - 24px);height:26px;padding:0 10px;border-radius:var(--r-pill);background:var(--pill-bg);
+                    color:var(--pill-fg);font-size:13px;font-weight:600;line-height:26px;text-decoration:none;white-space:nowrap;
+                    overflow:hidden;text-overflow:ellipsis;opacity:.55;transition:opacity .15s}
+                    .app-link::before{content:"\\2039";margin-right:6px}
+                    .app-link:hover,.app-link:focus-visible{opacity:1}
+                    .app-link:focus-visible{outline:2px solid var(--pill-fg);outline-offset:2px}
+                    body:has(.app-link){padding-bottom:56px}
+                    @media print{.app-link{display:none}}
                     .meta{color:var(--muted);margin:2px 0 0;height:22px;line-height:22px;white-space:nowrap;overflow:hidden;
                     text-overflow:ellipsis;font-size:12px}
                     .stale{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:var(--r-pill);color:var(--fg);padding:0 8px;
@@ -231,7 +238,7 @@ final class Style
                     @media (max-width:700px){:root{--bar-h:98px}.topbar{padding-top:6px}
                     .bar-main{flex-wrap:wrap;height:62px;gap:4px 8px;align-content:flex-start}
                     .bar-main h1{flex:1 1 60%;height:26px;line-height:26px;margin:0}
-                    .app-link{order:1}#grouping{order:2;flex:0 1 auto;min-width:0}#search{order:3;flex:1 1 90px}
+                    #grouping{order:2;flex:0 1 auto;min-width:0}#search{order:3;flex:1 1 90px}
                     .summary dd{font-size:16px}th,td{padding:4px}th.rank{width:calc(4ch + 8px)}
                     table.funds th.num{width:5.5em}table.funds th:nth-child(5){width:8em}table.funds th.state{width:5.5em}
                     table.funds th:nth-child(2),table.funds th:nth-child(4),table.funds th:nth-child(6),

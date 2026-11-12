@@ -365,8 +365,8 @@ public class PageSmokeTest
         {
             companies++;
             assertTrue(blocks.group().contains("<tr class=\"detail\">"), "detail row");
-            assertTrue(blocks.group().contains("<ul class=\"contrib\">"), "contributions list");
-            assertTrue(blocks.group().indexOf("<tr class=\"detail\">") < blocks.group().indexOf("<ul class=\"contrib\">"));
+            assertTrue(blocks.group().contains("<ul class=\"contrib sums\">"), "contributions list");
+            assertTrue(blocks.group().indexOf("<tr class=\"detail\">") < blocks.group().indexOf("<ul class=\"contrib sums\">"));
         }
         assertTrue(companies > 0, "company blocks");
 

@@ -804,12 +804,11 @@ public final class PageWriter
                                 "</td><td class=\"num\">", e(category.shareText().orElse("")), "</td></tr>");
                 if (!category.details().isEmpty())
                 {
-                    add("<tr class=\"detail\"><td></td><td colspan=\"5\"><ul class=\"contrib\">");
+                    add("<tr class=\"detail\"><td></td><td colspan=\"5\"><ul class=\"contrib sums\">");
                     for (var detail : category.details())
-                        add("<li>", e(detail.label()), " &middot; ", e(detail.sourceText()),
-                                        detail.note().isBlank() ? "" : " &middot; " + e(detail.note()), ": ",
-                                        e(LookThroughViewPresenter.formatAmount(detail.value(), currency)),
-                                        detail.shareText().map(s -> " (" + e(s) + ")").orElse(""), "</li>");
+                        sourceLine(detail.direct(), e(detail.label()) + " &middot; " + e(detail.sourceText())
+                                        + (detail.note().isBlank() ? "" : " &middot; " + e(detail.note())), detail.value(),
+                                        detail.shareText(), currency);
                     add("</ul></td></tr>");
                 }
                 add("</tbody>");
@@ -842,12 +841,26 @@ public final class PageWriter
         amounts(company.direct(), company.indirect(), company.total(), company.shareText(), currency);
         add("</tr><tr class=\"detail\"><td></td><td colspan=\"5\">");
         company.detail().ifPresent(detail -> add("<p class=\"detail\">", e(detail), "</p>"));
-        add("<ul class=\"contrib\">");
+        add("<ul class=\"contrib sums\">");
         for (ContributionRow contribution : company.contributions())
-            add("<li class=\"", contribution.direct() ? "direct" : "indirect", "\">", e(contribution.sourceText()), ": ",
-                            e(LookThroughViewPresenter.formatAmount(contribution.value(), currency)),
-                            contribution.shareText().map(s -> " (" + e(s) + ")").orElse(""), "</li>");
+            sourceLine(contribution.direct(), e(contribution.sourceText()), contribution.value(),
+                            contribution.shareText(), currency);
         add("</ul></td></tr></tbody>");
+    }
+
+    /**
+     * One source of a row. Its sum stands in the columns of the table: in its direct or indirect
+     * column, in the total column and as a share.
+     *
+     * @param text
+     *            the escaped text of the source
+     */
+    private void sourceLine(boolean direct, String text, BigDecimal value, Optional<String> share, String currency)
+    {
+        var sum = "<span class=\"num\">" + e(plain(value, currency)) + "</span>";
+        var none = "<span class=\"num\"></span>";
+        add("<li class=\"", direct ? "direct" : "indirect", "\"><span>", text, "</span>", direct ? sum : none,
+                        direct ? none : sum, sum, "<span class=\"num\">", e(share.orElse("")), "</span></li>");
     }
 
     private void amounts(BigDecimal direct, BigDecimal indirect, BigDecimal total, Optional<String> share,

@@ -36,16 +36,12 @@ public final class LensConfig
     public static final String RUN_TIMEOUT = "LENS_RUN_TIMEOUT";
     public static final String CACHE_DIR = "LENS_CACHE_DIR";
     public static final String OUTPUT_DIR = "LENS_OUTPUT_DIR";
-    public static final String APP_LINK_URL = "LENS_APP_LINK_URL";
-    public static final String APP_LINK_LABEL = "LENS_APP_LINK_LABEL";
     public static final String FILE_SUFFIX = "_FILE";
 
     /** The exact setting to add when a provider key is configured without the confirmation. */
     public static final String CONFIRMATION_HINT = LOCAL_STORAGE_CONFIRMED + "=true";
 
     private static final long MAX_SECRET_BYTES = 8192;
-    private static final String DEFAULT_APP_LINK_LABEL = "Portfolio Performance";
-    private static final int MAX_APP_LINK_LABEL = 60;
 
     public record Error(String setting, String message)
     {
@@ -56,15 +52,10 @@ public final class LensConfig
         }
     }
 
-    /** The optional link back to the application shown in the page header. */
-    public record AppLink(String url, String label)
-    {
-    }
-
     public record Settings(URI ppUrl, Optional<String> ppToken, Optional<String> ppFile,
                     Optional<String> reportingCurrency, Optional<String> eulerpoolKey, boolean localStorageConfirmed,
                     boolean registerLookup, long requestBudget, Duration runTimeout, Path cacheDir,
-                    Optional<Path> outputDir, Optional<AppLink> appLink)
+                    Optional<Path> outputDir)
     {
         /** A key is set but the confirmation is not: provider data is not used (design D6). */
         public boolean unconfirmedKey()
@@ -83,8 +74,7 @@ public final class LensConfig
         {
             return String.join("|", ppUrl.toString(), ppFile.orElse(""), reportingCurrency.orElse(""),
                             String.valueOf(eulerpoolKey.isPresent()), String.valueOf(localStorageConfirmed),
-                            String.valueOf(registerLookup), String.valueOf(requestBudget),
-                            appLink.map(link -> link.url() + "\n" + link.label()).orElse(""));
+                            String.valueOf(registerLookup), String.valueOf(requestBudget));
         }
 
         @Override
@@ -219,48 +209,8 @@ public final class LensConfig
         if (requireOutput && outputDir.isEmpty())
             errors.add(new Error(OUTPUT_DIR, "is required: the directory where index.html is written"));
 
-        var appLink = appLink();
-
         return new Settings(ppUrl, token, text(PP_FILE).map(String::trim), currency, key, confirmed, register, budget,
-                        timeout, cacheDir, outputDir, appLink);
-    }
-
-    private Optional<AppLink> appLink()
-    {
-        var rawUrl = text(APP_LINK_URL);
-        var rawLabel = Optional.ofNullable(values.get(APP_LINK_LABEL)).filter(value -> !value.isBlank());
-        if (rawUrl.isEmpty())
-        {
-            if (rawLabel.isPresent())
-                errors.add(new Error(APP_LINK_LABEL, "has no effect without " + APP_LINK_URL));
-            return Optional.empty();
-        }
-        var label = rawLabel.map(String::trim).orElse(DEFAULT_APP_LINK_LABEL);
-        var valid = true;
-        if (label.length() > MAX_APP_LINK_LABEL || label.chars().anyMatch(Character::isISOControl))
-        {
-            errors.add(new Error(APP_LINK_LABEL,
-                            "must be at most " + MAX_APP_LINK_LABEL + " characters without line breaks"));
-            valid = false;
-        }
-        URI uri = null;
-        try
-        {
-            uri = new URI(rawUrl.get().trim());
-        }
-        catch (java.net.URISyntaxException e)
-        {
-            // reported below
-        }
-        if (uri == null || !uri.isAbsolute() || uri.getHost() == null || uri.getRawUserInfo() != null
-                        || uri.getScheme() == null
-                        || !(uri.getScheme().equalsIgnoreCase("http") || uri.getScheme().equalsIgnoreCase("https")))
-        {
-            errors.add(new Error(APP_LINK_URL, "must be an absolute http or https URL without user name or password,"
-                            + " for example https://example.org/"));
-            return Optional.empty();
-        }
-        return valid ? Optional.of(new AppLink(uri.toString(), label)) : Optional.empty();
+                        timeout, cacheDir, outputDir);
     }
 
     private Optional<String> text(String name)

@@ -203,7 +203,7 @@ final class Style
                     tr:has(details[open])>td,tr.open>td{border-bottom-color:transparent}
                     @supports not selector(:has(*)){html:not(.js) tr.detail{display:table-row}}
                     .contrib{margin:0 0 4px 18px;padding:0;font-size:12px;color:var(--muted)}
-                    .contrib.sums{list-style:none;margin:0 0 4px;padding:0}
+                    .contrib.sums{list-style:none;margin:0 0 4px;padding:0;font-size:inherit}.contrib.sums li>span{font-size:12px}
                     .contrib.sums li{display:grid;grid-template-columns:1fr calc(12ch + 16px) calc(12ch + 16px) calc(12ch + 16px) calc(7ch + 16px)}
                     .contrib.sums li>.num{padding-right:8px}.contrib.sums li>span:first-child{padding-left:16px}
                     tr.detail td:has(>.contrib.sums){padding-right:0}

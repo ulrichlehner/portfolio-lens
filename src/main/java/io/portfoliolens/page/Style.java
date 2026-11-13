@@ -35,8 +35,7 @@ final class Style
                     --cov-companies:#7b5ea7;--cov-ungrouped:#a3b84a;--cov-cash:#9aa1a8;--cov-unverified:#e0a43a;
                     --cov-unresolved:#c4473a;--warn-bg:#fff4dc;--warn-line:#d79a1e;--info-bg:#eef4fb;--target:#fff1b8;
                     --mx-0:#eef3f8;--mx-1:#1f4e89;--bar-h:68px;
-                    --accent:#2563a8;--r:6px;--r-l:10px;--r-pill:999px;--ctl-h:30px;--shadow:0 4px 14px rgba(0,0,0,.18);
-                    --pill-bg:rgba(49,49,49,.7);--pill-fg:#ffffff}
+                    --accent:#2563a8;--r:6px;--r-l:10px;--r-pill:999px;--ctl-h:30px;--shadow:0 4px 14px rgba(0,0,0,.18)}
                     @media (prefers-color-scheme:dark){:root{--bg:#15181b;--fg:#e6e8ea;--muted:#a1a8af;--line:#33393f;
                     --panel:#1d2125;--tm-other:#3f566e;
                     --cov-companies:#a58ad6;--cov-ungrouped:#b9cc5c;--cov-cash:#7c848c;--cov-unverified:#e8b45a;
@@ -78,15 +77,6 @@ final class Style
                     border-top:1px solid var(--line)}
                     #exposure{margin-top:0;padding-top:0;border-top:0}
                     .page-section>h2{font-size:15px;margin:0 0 10px}
-                    .app-link{position:fixed;right:12px;bottom:12px;z-index:30;display:inline-flex;align-items:center;
-                    max-width:calc(100vw - 24px);height:26px;padding:0 10px;border-radius:var(--r-pill);background:var(--pill-bg);
-                    color:var(--pill-fg);font-size:13px;font-weight:600;line-height:26px;text-decoration:none;white-space:nowrap;
-                    overflow:hidden;text-overflow:ellipsis;opacity:.55;transition:opacity .15s}
-                    .app-link::before{content:"\\2039";margin-right:6px}
-                    .app-link:hover,.app-link:focus-visible{opacity:1}
-                    .app-link:focus-visible{outline:2px solid var(--pill-fg);outline-offset:2px}
-                    body:has(.app-link){padding-bottom:56px}
-                    @media print{.app-link{display:none}}
                     .meta{color:var(--muted);margin:2px 0 0;height:22px;line-height:22px;white-space:nowrap;overflow:hidden;
                     text-overflow:ellipsis;font-size:12px}
                     .stale{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:var(--r-pill);color:var(--fg);padding:0 8px;

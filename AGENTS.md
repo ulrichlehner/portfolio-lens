@@ -138,6 +138,14 @@ Portfolio Lens follows [Semantic Versioning 2.0.0](https://semver.org/).
   `style` release nothing. Release candidate tags do not count as the last release.
 - The commit type therefore decides whether and how a merge releases. Choose it truthfully: a `feat`
   or `fix` on `main` is published at once, so `main` must be releasable at any time.
+  A change to what the page shows or does, or to any other shipped behaviour, is a `feat` or a
+  `fix`, also when the look is not part of the public interface (that only means such a change is
+  never breaking). `style` is for code formatting that changes no behaviour. `refactor` changes no
+  behaviour either. When a change is user-visible, do not type it `style` or `refactor`: the merge
+  would release nothing. The CI job "Release preview" shows the outcome in every pull request and
+  warns when shipped code (`src/main`, `pom.xml`, `release/`) changes without a releasable commit.
+  A commit already on `main` cannot be retyped. Fix it with an empty `feat` or `fix` commit that
+  names the commit it releases.
 - A release candidate is a tag `vMAJOR.MINOR.PATCH-rc.N`, for example `v1.1.0-rc.1`, pushed by hand
   on a commit on `main`. It is published as a prerelease for testing an integration. A final tag
   `vMAJOR.MINOR.PATCH` pushed by hand on `main` is published as well. A tag on a commit outside

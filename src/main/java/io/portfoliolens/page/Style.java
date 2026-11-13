@@ -193,7 +193,7 @@ final class Style
                     tr:has(details[open])>td,tr.open>td{border-bottom-color:transparent}
                     @supports not selector(:has(*)){html:not(.js) tr.detail{display:table-row}}
                     .contrib{margin:0 0 4px 18px;padding:0;font-size:12px;color:var(--muted)}
-                    .contrib.sums{list-style:none;margin:0 0 4px;padding:0;font-size:inherit}.contrib.sums li>span{font-size:12px}
+                    .contrib.sums{list-style:none;margin:0 0 4px;padding:0;font-size:12px}
                     .contrib.sums li{display:grid;grid-template-columns:1fr calc(12ch + 16px) calc(12ch + 16px) calc(12ch + 16px) calc(7ch + 16px)}
                     .contrib.sums li>.num{padding-right:8px}.contrib.sums li>span:first-child{padding-left:16px}
                     tr.detail td:has(>.contrib.sums){padding-right:0}
@@ -229,7 +229,7 @@ final class Style
                     .bar-main{flex-wrap:wrap;height:62px;gap:4px 8px;align-content:flex-start}
                     .bar-main h1{flex:1 1 60%;height:26px;line-height:26px;margin:0}
                     #grouping{order:2;flex:0 1 auto;min-width:0}#search{order:3;flex:1 1 90px}
-                    .summary dd{font-size:16px}th,td{padding:4px}th.rank{width:calc(4ch + 8px)}
+                    .summary dd{font-size:16px}th,td{padding:4px}.contrib.sums li>.num{padding-right:4px}th.rank{width:calc(4ch + 8px)}
                     table.funds th.num{width:5.5em}table.funds th:nth-child(5){width:8em}table.funds th.state{width:5.5em}
                     table.funds th:nth-child(2),table.funds th:nth-child(4),table.funds th:nth-child(6),
                     table.funds tr.top>td:nth-child(2),table.funds tr.top>td:nth-child(4),table.funds tr.top>td:nth-child(6){width:0;
